@@ -10,21 +10,35 @@ export type HalalStatus = 'HALAL' | 'DOUBTFUL' | 'NOT_HALAL' | 'NEEDS_REVIEW';
 
 export interface HalalScreenResult {
   status: HalalStatus;
-  score: number; // 0-100
+  score: number;
+  company_type: 1 | 2 | 3;
+  company_type_label: string;
+  security_type_check: {
+    passed: boolean;
+    reason: string;
+  };
   business_check: {
     passed: boolean;
     reason: string;
     flagged_activities: string[];
   };
   financial_check: {
-    passed: boolean | null; // null = insufficient data
-    debt_ratio_flag: boolean | null;
-    reason: string;
+    debt_ratio: { status: 'pass' | 'fail' | 'unknown'; threshold: string; note: string };
+    deposit_ratio: { status: 'pass' | 'fail' | 'unknown'; threshold: string; note: string };
+    haram_income_ratio: { status: 'pass' | 'fail' | 'unknown'; threshold: string; note: string };
+    overall_passed: boolean | null;
   };
+  purification: {
+    required: boolean;
+    note: string;
+    estimated_rate: string;
+  };
+  esg_note: string;
   flags: string[];
   positives: string[];
   disclaimer: string;
   musaffa_url: string;
+  source: string;
 }
 
 // ─── Haram Industries (Business Screen) ───────────────────────────────────────
@@ -81,16 +95,34 @@ export function screenStock(stock: StockData): HalalScreenResult {
     return {
       status: 'NOT_HALAL',
       score: 5,
+      company_type: 1,
+      company_type_label: 'Unknown',
+      security_type_check: {
+        passed: false,
+        reason: 'Primary business is haram',
+      },
       business_check: {
         passed: false,
         reason: 'This company operates primarily in industries incompatible with Islamic finance (banking, insurance, alcohol, gambling, or weapons).',
         flagged_activities: ['Haram primary business'],
       },
-      financial_check: { passed: false, debt_ratio_flag: null, reason: 'Business screen failed.' },
+      financial_check: {
+        debt_ratio: { status: 'unknown', threshold: '30%', note: 'Business screen failed.' },
+        deposit_ratio: { status: 'unknown', threshold: '30%', note: 'Business screen failed.' },
+        haram_income_ratio: { status: 'unknown', threshold: '5%', note: 'Business screen failed.' },
+        overall_passed: false,
+      },
+      purification: {
+        required: true,
+        note: 'Primary business is non-permissible; purification/avoidance not applicable',
+        estimated_rate: '100%',
+      },
+      esg_note: '',
       flags: ['Primary business is not Sharia-compliant'],
       positives: [],
       disclaimer: getDisclaimer(ticker),
       musaffa_url: `https://musaffa.com/stock/${ticker}`,
+      source: 'automated-screener',
     };
   }
 
@@ -198,20 +230,46 @@ export function screenStock(stock: StockData): HalalScreenResult {
   return {
     status,
     score,
+    company_type: 1,
+    company_type_label: 'Unknown',
+    security_type_check: {
+      passed: true,
+      reason: 'Security type not flagged by automated checks',
+    },
     business_check: {
       passed: businessPassed,
       reason: businessReason,
       flagged_activities: flaggedActivities,
     },
     financial_check: {
-      passed: financialPassed,
-      debt_ratio_flag: debtRatioFlag,
-      reason: financialReason,
+      debt_ratio: {
+        status: debtRatioFlag === true ? 'fail' : debtRatioFlag === false ? 'pass' : 'unknown',
+        threshold: '30%',
+        note: debtRatioFlag === true ? 'Flagged due to high beta — verify debt ratios' : 'No immediate debt flag from beta proxy',
+      },
+      deposit_ratio: {
+        status: 'unknown',
+        threshold: '30%',
+        note: 'Requires audited balance sheet analysis',
+      },
+      haram_income_ratio: {
+        status: 'unknown',
+        threshold: '5%',
+        note: 'Requires revenue breakdown verification',
+      },
+      overall_passed: financialPassed,
     },
+    purification: {
+      required: !businessPassed,
+      note: businessPassed ? 'Not required unless financial ratios fail' : 'Primary business is non-permissible',
+      estimated_rate: businessPassed ? 'TBD' : '100%',
+    },
+    esg_note: '',
     flags,
     positives,
     disclaimer: getDisclaimer(ticker),
     musaffa_url: `https://musaffa.com/stock/${ticker}`,
+    source: 'automated-screener',
   };
 }
 
