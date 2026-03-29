@@ -44,12 +44,13 @@ export default function ShareholdersPanel({ ticker }: { ticker: string }) {
           <span className="badge-blue text-[10px]">SEC Form 4</span>
         </div>
         
+        <a
           href={`https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&company=${ticker}&type=13F&dateb=&owner=include&count=10`}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center gap-1 text-xs text-accent-blue hover:underline"
-        >
-          Full 13F filings <ExternalLink size={11} />
+          className="flex items-center gap-1 text-xs text-accent-blue hover:underline">
+          <span>Full 13F filings</span>
+          <ExternalLink size={11} />
         </a>
       </div>
 
@@ -63,12 +64,14 @@ export default function ShareholdersPanel({ ticker }: { ticker: string }) {
             No recent insider transactions found for {ticker}.
           </p>
           
+          <a
             href={`https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&company=${ticker}&type=4&dateb=&owner=include&count=10`}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1.5 text-xs text-accent-blue hover:underline"
           >
-            Search SEC EDGAR directly <ExternalLink size={11} />
+            <span>Search SEC EDGAR directly</span>
+            <ExternalLink size={11} />
           </a>
         </div>
       ) : (
@@ -90,13 +93,21 @@ export default function ShareholdersPanel({ ticker }: { ticker: string }) {
                   <p className="text-sm font-medium text-white truncate">{tx.name}</p>
                   <p className="text-xs text-secondary">
                     {tx.transaction_type}
-                    {tx.date ? ' · ' + new Date(tx.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''}
+                    {tx.date
+                      ? ' · ' + new Date(tx.date).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric',
+                        })
+                      : ''}
                   </p>
                 </div>
               </div>
               <div className="text-right shrink-0">
                 <p className={`text-sm font-mono font-semibold ${
-                  tx.transaction_type === 'Purchase' ? 'text-accent-green' : 'text-accent-red'
+                  tx.transaction_type === 'Purchase'
+                    ? 'text-accent-green'
+                    : 'text-accent-red'
                 }`}>
                   {tx.transaction_type === 'Purchase' ? '+' : '-'}{formatShares(tx.shares)}
                 </p>
@@ -112,12 +123,14 @@ export default function ShareholdersPanel({ ticker }: { ticker: string }) {
               Source: SEC Form 4 filings · Updated daily
             </p>
             
+            <a
               href={`https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&company=${ticker}&type=13F&dateb=&owner=include&count=10`}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-1 text-[10px] text-accent-blue hover:underline"
             >
-              View institutional holders on SEC.gov <ExternalLink size={10} />
+              <span>View institutional holders on SEC.gov</span>
+              <ExternalLink size={10} />
             </a>
           </div>
         </div>
