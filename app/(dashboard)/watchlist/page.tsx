@@ -35,7 +35,7 @@ export default function WatchlistPage() {
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     {editTarget?.id === item.id ? (
-                      <><span className="text-xs text-muted">$</span><input type="number" step="0.01" value={editTarget.value} onChange={e => setEditTarget({id:item.id,value:e.target.value})} className="input w-24 py-1 text-xs" autoFocus/>
+                      <><span className="text-xs text-muted">$</span><input type="number" step="0.01" value={editTarget?.value} onChange={e => setEditTarget({id:item.id,value:e.target.value})} className="input w-24 py-1 text-xs" autoFocus/>
                       <button onClick={() => saveTarget(item.id)} className="p-1 rounded text-accent-green hover:bg-accent-green/10"><Check size={14}/></button>
                       <button onClick={() => setEditTarget(null)} className="p-1 rounded text-muted hover:bg-surface-3"><X size={14}/></button></>
                     ) : (
