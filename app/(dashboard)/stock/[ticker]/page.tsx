@@ -17,7 +17,15 @@ export default async function StockDetailPage({ params }: { params: Promise<{ ti
     fetchStockData(upper),
     fetchPriceHistory(upper, '6mo')
   ]);
-  if (!stock) notFound();
+  if (!stock) {
+  return (
+    <div className="flex flex-col items-center justify-center min-h-[60vh] text-center gap-4">
+      <p className="text-2xl">⚠️</p>
+      <h2 className="text-xl font-semibold text-white">Could not load {ticker.toUpperCase()}</h2>
+      <p className="text-secondary text-sm">Market data is temporarily unavailable. Please try again in a moment.</p>
+    </div>
+  );
+}
   const isPos = (stock.change_percent ?? 0) >= 0;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
