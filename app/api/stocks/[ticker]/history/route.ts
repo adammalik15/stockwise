@@ -16,7 +16,7 @@ export async function GET(
   const period = request.nextUrl.searchParams.get('period') ?? '6mo';
 
   try {
-    const url = `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${upper}&outputsize=full&apikey=${AV_KEY}`;
+    const url = `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${upper}&outputsize=compact&apikey=${AV_KEY}`;
     const res = await fetch(url, { next: { revalidate: 3600 } });
     const data = await res.json();
 
