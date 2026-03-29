@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard, Star, Briefcase, BarChart2,
-  Compass, LogOut, TrendingUp, Menu, X, Settings
+  Compass, LogOut, TrendingUp, Menu, X, Settings, Target
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
@@ -15,6 +15,7 @@ const navItems = [
   { href: '/portfolio', label: 'Portfolio', icon: Briefcase },
   { href: '/portfolio-analysis', label: 'Analysis', icon: BarChart2 },
   { href: '/discover', label: 'Discover', icon: Compass },
+  { href: '/goals', label: 'My Goals', icon: Target },
   { href: '/settings', label: 'Settings', icon: Settings },
 ];
 
@@ -33,6 +34,11 @@ export default function Navigation() {
     getUser();
   }, []);
 
+  // Close mobile menu on route change
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
+
   async function handleSignOut() {
     const supabase = createClient();
     await supabase.auth.signOut();
@@ -43,84 +49,83 @@ export default function Navigation() {
     ? userEmail.split('@')[0].charAt(0).toUpperCase() + userEmail.split('@')[0].slice(1)
     : null;
 
-  const NavContent = () => (
-    <>
-      {/* Logo */}
-      <div className="flex items-center gap-2.5 px-4 py-5 border-b border-border">
-        <div className="w-8 h-8 rounded-lg bg-accent-green flex items-center justify-center shrink-0">
-          <TrendingUp size={16} className="text-surface" />
-        </div>
-        <div>
-          <span className="font-bold text-white text-lg leading-none">StockWise</span>
-          <p className="text-[10px] text-muted mt-0.5">by Adam</p>
-        </div>
-      </div>
-
-      {/* User info */}
-      {displayName && (
-        <div className="mx-3 mt-3 p-3 rounded-xl bg-surface-2 border border-border flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-full bg-accent-green/20 flex items-center justify-center shrink-0">
-            <span className="text-xs font-bold text-accent-green">
-              {displayName.charAt(0).toUpperCase()}
-            </span>
-          </div>
-          <div className="min-w-0">
-            <p className="text-xs font-semibold text-white truncate">{displayName}</p>
-            <p className="text-[10px] text-muted truncate">{userEmail}</p>
-          </div>
-        </div>
-      )}
-
-      {/* Nav Items */}
-      <nav className="flex-1 px-3 py-4 space-y-0.5">
-        {navItems.map(({ href, label, icon: Icon }) => {
-          const active = pathname === href || pathname.startsWith(href + '/');
-          return (
-            <Link
-              key={href}
-              href={href}
-              onClick={() => setMobileOpen(false)}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 group ${
-                active
-                  ? 'bg-accent-green/10 text-accent-green'
-                  : 'text-secondary hover:bg-surface-2 hover:text-white'
-              }`}
-            >
-              <Icon size={17} className={active ? 'text-accent-green' : 'text-muted group-hover:text-white'} />
-              {label}
-              {active && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-accent-green" />}
-            </Link>
-          );
-        })}
-      </nav>
-
-      {/* Footer */}
-      <div className="px-3 py-4 border-t border-border">
-        <p className="px-3 text-[10px] text-muted mb-2 leading-relaxed">
-          Prices delayed ~15 min. Not financial advice.
-        </p>
-        <button
-          onClick={handleSignOut}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-secondary hover:bg-surface-2 hover:text-white transition-all duration-150 group"
-        >
-          <LogOut size={17} className="text-muted group-hover:text-white" />
-          Sign Out
-        </button>
-      </div>
-    </>
+  const NavLinks = () => (
+    <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
+      {navItems.map(({ href, label, icon: Icon }) => {
+        const active = pathname === href || pathname.startsWith(href + '/');
+        return (
+          <Link
+            key={href}
+            href={href}
+            className={`flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium transition-all duration-150 group ${
+              active
+                ? 'bg-accent-green/10 text-accent-green'
+                : 'text-secondary hover:bg-surface-2 hover:text-white'
+            }`}
+          >
+            <Icon
+              size={18}
+              className={active ? 'text-accent-green shrink-0' : 'text-muted group-hover:text-white shrink-0'}
+            />
+            <span>{label}</span>
+            {active && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-accent-green shrink-0" />}
+          </Link>
+        );
+      })}
+    </nav>
   );
 
   return (
     <>
-      {/* Desktop Sidebar */}
+      {/* ── Desktop Sidebar ───────────────────────────────── */}
       <aside className="hidden lg:flex flex-col w-56 bg-surface-1 border-r border-border h-screen sticky top-0 shrink-0">
-        <NavContent />
+        {/* Logo */}
+        <div className="flex items-center gap-2.5 px-4 py-5 border-b border-border shrink-0">
+          <div className="w-8 h-8 rounded-lg bg-accent-green flex items-center justify-center shrink-0">
+            <TrendingUp size={16} className="text-surface" />
+          </div>
+          <div>
+            <span className="font-bold text-white text-lg leading-none">StockWise</span>
+            <p className="text-[10px] text-muted mt-0.5">by Adam</p>
+          </div>
+        </div>
+
+        {/* User */}
+        {displayName && (
+          <div className="mx-3 mt-3 p-3 rounded-xl bg-surface-2 border border-border flex items-center gap-2.5 shrink-0">
+            <div className="w-8 h-8 rounded-full bg-accent-green/20 flex items-center justify-center shrink-0">
+              <span className="text-xs font-bold text-accent-green">
+                {displayName.charAt(0).toUpperCase()}
+              </span>
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-white truncate">{displayName}</p>
+              <p className="text-[10px] text-muted truncate">{userEmail}</p>
+            </div>
+          </div>
+        )}
+
+        <NavLinks />
+
+        {/* Footer */}
+        <div className="px-3 py-4 border-t border-border shrink-0">
+          <p className="px-3 text-[10px] text-muted mb-2 leading-relaxed">
+            Prices delayed ~15 min. Not financial advice.
+          </p>
+          <button
+            onClick={handleSignOut}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-secondary hover:bg-surface-2 hover:text-white transition-all"
+          >
+            <LogOut size={17} className="text-muted shrink-0" />
+            Sign Out
+          </button>
+        </div>
       </aside>
 
-      {/* Mobile Header */}
-      <div className="lg:hidden flex items-center justify-between px-4 py-3 bg-surface-1 border-b border-border sticky top-0 z-40">
+      {/* ── Mobile Header ─────────────────────────────────── */}
+      <header className="lg:hidden flex items-center justify-between px-4 py-3 bg-surface-1 border-b border-border sticky top-0 z-40 w-full">
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-accent-green flex items-center justify-center">
+          <div className="w-7 h-7 rounded-lg bg-accent-green flex items-center justify-center shrink-0">
             <TrendingUp size={14} className="text-surface" />
           </div>
           <div>
@@ -131,28 +136,78 @@ export default function Navigation() {
         <div className="flex items-center gap-2">
           {displayName && (
             <div className="w-7 h-7 rounded-full bg-accent-green/20 flex items-center justify-center">
-              <span className="text-xs font-bold text-accent-green">
+              <span className="text-[11px] font-bold text-accent-green">
                 {displayName.charAt(0).toUpperCase()}
               </span>
             </div>
           )}
           <button
-            onClick={() => setMobileOpen(!mobileOpen)}
-            className="p-1.5 rounded-lg hover:bg-surface-2 text-secondary"
+            onClick={() => setMobileOpen(prev => !prev)}
+            className="p-2 rounded-lg bg-surface-2 text-white"
+            aria-label="Toggle menu"
           >
-            {mobileOpen ? <X size={20} /> : <Menu size={20} />}
+            {mobileOpen ? <X size={18} /> : <Menu size={18} />}
           </button>
         </div>
-      </div>
+      </header>
 
-      {/* Mobile Overlay */}
+      {/* ── Mobile Drawer ─────────────────────────────────── */}
       {mobileOpen && (
-        <div className="lg:hidden fixed inset-0 z-50 flex">
-          <div className="w-72 bg-surface-1 border-r border-border flex flex-col h-full overflow-y-auto">
-            <NavContent />
+        <>
+          {/* Backdrop */}
+          <div
+            className="lg:hidden fixed inset-0 bg-black/70 z-40"
+            onClick={() => setMobileOpen(false)}
+          />
+          {/* Drawer */}
+          <div className="lg:hidden fixed top-0 left-0 h-full w-72 bg-surface-1 border-r border-border z-50 flex flex-col">
+            {/* Drawer header */}
+            <div className="flex items-center justify-between px-4 py-4 border-b border-border shrink-0">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-accent-green flex items-center justify-center">
+                  <TrendingUp size={14} className="text-surface" />
+                </div>
+                <div>
+                  <span className="font-bold text-white">StockWise</span>
+                  <span className="text-[10px] text-muted ml-1.5">by Adam</span>
+                </div>
+              </div>
+              <button
+                onClick={() => setMobileOpen(false)}
+                className="p-1.5 rounded-lg bg-surface-2 text-white"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* User info */}
+            {displayName && (
+              <div className="mx-3 mt-3 p-3 rounded-xl bg-surface-2 border border-border flex items-center gap-2.5 shrink-0">
+                <div className="w-9 h-9 rounded-full bg-accent-green/20 flex items-center justify-center shrink-0">
+                  <span className="text-sm font-bold text-accent-green">
+                    {displayName.charAt(0).toUpperCase()}
+                  </span>
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-white truncate">{displayName}</p>
+                  <p className="text-[10px] text-muted truncate">{userEmail}</p>
+                </div>
+              </div>
+            )}
+
+            <NavLinks />
+
+            <div className="px-3 py-4 border-t border-border shrink-0">
+              <button
+                onClick={handleSignOut}
+                className="w-full flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium text-secondary hover:bg-surface-2 hover:text-white transition-all"
+              >
+                <LogOut size={17} className="shrink-0" />
+                Sign Out
+              </button>
+            </div>
           </div>
-          <div className="flex-1 bg-black/60" onClick={() => setMobileOpen(false)} />
-        </div>
+        </>
       )}
     </>
   );
