@@ -9,6 +9,7 @@ export default function PortfolioPage() {
   const [holdings, setHoldings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [editItem, setEditItem] = useState<any>(null);
+  const [editMode, setEditMode] = useState<EditMode>('add');
   const [editForm, setEditForm] = useState({ quantity: '', purchase_price: '', purchase_date: '', notes: '' });
   const [saving, setSaving] = useState(false);
 
