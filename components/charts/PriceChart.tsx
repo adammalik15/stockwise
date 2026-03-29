@@ -45,9 +45,9 @@ export default function PriceChart({ ticker, initialData, currentPrice }: { tick
           </button>
         ))}
       </div>
-      <div className="relative h-52">
+      <div className="relative w-full" style={{ height: '200px' }}>
         {loading && <div className="absolute inset-0 flex items-center justify-center bg-surface-1/60 z-10 rounded-lg"><div className="w-5 h-5 border-2 border-accent-green/30 border-t-accent-green rounded-full animate-spin" /></div>}
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer width="100%" height={200}>
           <AreaChart data={data} margin={{ top: 5, right: 5, left: 0, bottom: 5 }}>
             <defs>
               <linearGradient id="pg" x1="0" y1="0" x2="0" y2="1">
