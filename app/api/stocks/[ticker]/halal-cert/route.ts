@@ -38,7 +38,7 @@ export async function POST(
 
   const { ticker } = await params;
   const upper = ticker.toUpperCase();
-  const { certified_name, source, notes } = await request.json();
+  const { certified_name, source, notes, user_verdict } = await request.json();
 
   const { error } = await supabase.from('halal_certifications').upsert({
     ticker: upper,
@@ -46,6 +46,7 @@ export async function POST(
     certified_name: certified_name || user.email?.split('@')[0] || 'Anonymous',
     source: source || 'Personal research',
     notes: notes || null,
+    user_verdict: user_verdict || 'halal',
   }, { onConflict: 'ticker,certified_by' });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
