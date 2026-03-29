@@ -43,3 +43,38 @@ export interface PortfolioItem extends Portfolio {
   stock_data?: StockCache; current_value?: number; gain_loss?: number; gain_loss_percent?: number;
 }
 export interface WatchlistItem extends Watchlist { stock_data?: StockCache; at_target?: boolean; }
+
+export type HalalStatus = 'HALAL' | 'DOUBTFUL' | 'NOT_HALAL' | 'NEEDS_REVIEW';
+
+export interface HalalScreenResult {
+  status: HalalStatus;
+  score: number;
+  company_type: 1 | 2 | 3;
+  company_type_label: string;
+  security_type_check: {
+    passed: boolean;
+    reason: string;
+  };
+  business_check: {
+    passed: boolean;
+    reason: string;
+    flagged_activities: string[];
+  };
+  financial_check: {
+    debt_ratio: { status: 'pass' | 'fail' | 'unknown'; threshold: string; note: string };
+    deposit_ratio: { status: 'pass' | 'fail' | 'unknown'; threshold: string; note: string };
+    haram_income_ratio: { status: 'pass' | 'fail' | 'unknown'; threshold: string; note: string };
+    overall_passed: boolean | null;
+  };
+  purification: {
+    required: boolean;
+    note: string;
+    estimated_rate: string;
+  };
+  esg_note: string;
+  flags: string[];
+  positives: string[];
+  disclaimer: string;
+  musaffa_url: string;
+  source: string;
+}
