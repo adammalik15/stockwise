@@ -55,22 +55,26 @@ export async function fetchPriceHistory(
   period: '1mo' | '3mo' | '6mo' | '1y' | '2y' = '6mo'
 ): Promise<PricePoint[]> {
   const upper = ticker.toUpperCase();
-  const to = Math.floor(Date.now() / 1000);
+  const now = Math.floor(Date.now() / 1000);
   const map: Record<string, number> = {
     '1mo': 30, '3mo': 90, '6mo': 180, '1y': 365, '2y': 730,
   };
   const days = map[period] ?? 180;
-  const from = to - days * 86400;
-  // Use weekly for longer periods, daily for shorter
-  const resolution = period === '1mo' ? 'D' : period === '3mo' ? 'D' : 'W';
+  const from = now - days * 86400;
 
   try {
-    const res = await fetch(
-      `${BASE}/stock/candle?symbol=${upper}&resolution=${resolution}&from=${from}&to=${to}&token=${FINNHUB_KEY}`,
-      { next: { revalidate: 3600 } }
-    );
+    // Try daily resolution first
+    const url = `${BASE}/stock/candle?symbol=${upper}&resolution=D&from=${from}&to=${now}&token=${FINNHUB_KEY}`;
+    const res = await fetch(url, { cache: 'no-store' });
     const data = await res.json();
-    if (!data || data.s !== 'ok' || !data.t) return [];
+
+    console.log(`Chart data for ${upper}:`, data?.s, data?.t?.length);
+
+    if (!data || data.s !== 'ok' || !data.t || data.t.length === 0) {
+      console.error(`No chart data for ${upper}:`, data?.s);
+      return [];
+    }
+
     return data.t.map((timestamp: number, i: number) => ({
       date: new Date(timestamp * 1000).toISOString().split('T')[0],
       open: data.o[i] ?? 0,
