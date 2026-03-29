@@ -16,45 +16,29 @@ export async function GET(
   const upper = ticker.toUpperCase();
 
   try {
-    const [fundRes, instRes] = await Promise.all([
-      fetch(`${BASE}/stock/fund-ownership?symbol=${upper}&limit=5&token=${FINNHUB_KEY}`),
-      fetch(`${BASE}/stock/institutional-ownership?symbol=${upper}&limit=5&token=${FINNHUB_KEY}`),
-    ]);
+    const res = await fetch(
+      `${BASE}/stock/insider-transactions?symbol=${upper}&token=${FINNHUB_KEY}`,
+      { next: { revalidate: 86400 } }
+    );
+    const data = await res.json();
 
-    const [fundData, instData] = await Promise.all([
-      fundRes.json(),
-      instRes.json(),
-    ]);
+    const transactions = (data?.data ?? [])
+      .filter((t: any) => t.share && Math.abs(t.share) > 0)
+      .slice(0, 8)
+      .map((t: any) => ({
+        name: t.name ?? 'Company Insider',
+        shares: Math.abs(t.share ?? 0),
+        value: Math.abs(t.value ?? 0),
+        transaction_type: t.transactionCode === 'P'
+          ? 'Purchase'
+          : t.transactionCode === 'S'
+          ? 'Sale'
+          : t.transactionCode ?? 'Other',
+        date: t.filingDate ?? t.date ?? '',
+      }));
 
-    const fundHolders = (fundData?.data ?? []).slice(0, 5).map((h: any) => ({
-      name: h.name ?? 'Unknown Fund',
-      shares: h.share ?? 0,
-      value: h.value ?? 0,
-      change: h.change ?? 0,
-      change_percent: h.changePercent ?? 0,
-      percent_held: h.percentOwnership ?? 0,
-      type: 'fund',
-    }));
-
-    const instHolders = (instData?.data ?? []).slice(0, 5).map((h: any) => ({
-      name: h.name ?? 'Unknown Institution',
-      shares: h.share ?? 0,
-      value: h.value ?? 0,
-      change: h.change ?? 0,
-      change_percent: h.changePercent ?? 0,
-      percent_held: h.percentOwnership ?? 0,
-      type: 'institution',
-    }));
-
-    return NextResponse.json({
-      fund_holders: fundHolders,
-      institutional_holders: instHolders,
-    });
+    return NextResponse.json({ transactions });
   } catch (e: any) {
-    return NextResponse.json({
-      fund_holders: [],
-      institutional_holders: [],
-      error: e.message,
-    });
+    return NextResponse.json({ transactions: [], error: e.message });
   }
 }
