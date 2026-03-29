@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ExternalLink, ChevronDown, ChevronUp, CheckCircle, X, Loader2, BadgeCheck, Users } from 'lucide-react';
+import { ExternalLink, ChevronDown, ChevronUp, X, Loader2, BadgeCheck, Users } from 'lucide-react';
 import type { HalalScreenResult, HalalStatus } from '@/services/halal-screener';
 
 interface Props {
@@ -40,14 +40,24 @@ function getScoreColor(status: HalalStatus) {
   }
 }
 
-function RatioRow({ label, threshold, status, note }: {
+function RatioRow({
+  label,
+  threshold,
+  status,
+  note,
+}: {
   label: string;
   threshold: string;
   status: 'pass' | 'fail' | 'unknown';
   note: string;
 }) {
   const icon = status === 'pass' ? '✅' : status === 'fail' ? '❌' : '⚠️';
-  const color = status === 'pass' ? 'text-accent-green' : status === 'fail' ? 'text-accent-red' : 'text-accent-yellow';
+  const color =
+    status === 'pass'
+      ? 'text-accent-green'
+      : status === 'fail'
+      ? 'text-accent-red'
+      : 'text-accent-yellow';
   return (
     <div className="p-3 bg-surface-2 rounded-xl border border-border/50">
       <div className="flex items-start gap-2 mb-1">
@@ -62,21 +72,18 @@ function RatioRow({ label, threshold, status, note }: {
   );
 }
 
-function flagToStatus(flag: boolean | null | undefined): 'pass' | 'fail' | 'unknown' {
-  if (flag === true) return 'pass';
-  if (flag === false) return 'fail';
-  return 'unknown';
-}
-
 export default function HalalBadge({ result, ticker }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [certifications, setCertifications] = useState<Certification[]>([]);
   const [userCertified, setUserCertified] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
   const [showCertForm, setShowCertForm] = useState(false);
-  const [certForm, setCertForm] = useState({ certified_name: '', source: 'Musaffa.com', notes: '' });
+  const [certForm, setCertForm] = useState({
+    certified_name: '',
+    source: 'Musaffa.com',
+    notes: '',
+  });
   const [saving, setSaving] = useState(false);
-  const [loadingCerts, setLoadingCerts] = useState(true);
 
   const cfg = getStatusConfig(result.status);
   const scoreColor = getScoreColor(result.status);
@@ -96,7 +103,7 @@ export default function HalalBadge({ result, ticker }: Props) {
           });
         }
       })
-      .finally(() => setLoadingCerts(false));
+      .catch(() => {});
   }, [ticker]);
 
   async function saveCertification() {
@@ -109,7 +116,6 @@ export default function HalalBadge({ result, ticker }: Props) {
       });
       setUserCertified(true);
       setShowCertForm(false);
-      // Refresh list
       const res = await fetch(`/api/stocks/${ticker}/halal-cert`);
       const data = await res.json();
       setCertifications(data.certifications ?? []);
@@ -146,20 +152,23 @@ export default function HalalBadge({ result, ticker }: Props) {
   ];
 
   return (
-    <div className={`card border ${userCertified ? 'border-accent-green/50 bg-accent-green/5' : `${cfg.border} ${cfg.bg}`}`}>
-
-      {/* ── Header ── */}
+    <div
+      className={`card border ${
+        userCertified
+          ? 'border-accent-green/50 bg-accent-green/5'
+          : `${cfg.border} ${cfg.bg}`
+      }`}
+    >
+      {/* Header */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3">
           <div className="text-2xl shrink-0">☪️</div>
           <div>
             <div className="flex items-center gap-2 flex-wrap mb-0.5">
               <p className="text-sm font-semibold text-white">Halal Screening</p>
-              {/* System result badge */}
               <span className={`badge text-[10px] ${cfg.bg} ${cfg.color} border ${cfg.border}`}>
                 {cfg.emoji} {cfg.label}
               </span>
-              {/* Community certified badge */}
               {totalCount > 0 && (
                 <span className="badge bg-accent-green/15 text-accent-green border border-accent-green/30 text-[10px] gap-1">
                   <BadgeCheck size={10} />
@@ -177,26 +186,27 @@ export default function HalalBadge({ result, ticker }: Props) {
           <div className="relative w-14 h-14">
             <svg viewBox="0 0 36 36" className="w-14 h-14 -rotate-90">
               <circle cx="18" cy="18" r="15.9" fill="none" stroke="#1f1f28" strokeWidth="3" />
-              <circle cx="18" cy="18" r="15.9" fill="none"
+              <circle
+                cx="18" cy="18" r="15.9" fill="none"
                 stroke={userCertified ? '#00d4aa' : scoreColor}
                 strokeWidth="3"
                 strokeDasharray={`${userCertified ? 100 : result.score} 100`}
-                strokeLinecap="round" />
+                strokeLinecap="round"
+              />
             </svg>
             <div className="absolute inset-0 flex items-center justify-center">
-              {userCertified
-                ? <BadgeCheck size={20} className="text-accent-green" />
-                : <span className={`text-xs font-mono font-bold ${cfg.color}`}>{result.score}</span>
-              }
+              {userCertified ? (
+                <BadgeCheck size={20} className="text-accent-green" />
+              ) : (
+                <span className={`text-xs font-mono font-bold ${cfg.color}`}>{result.score}</span>
+              )}
             </div>
           </div>
-          <p className="text-[10px] text-muted mt-0.5">
-            {userCertified ? 'Certified' : `Score /100`}
-          </p>
+          <p className="text-[10px] text-muted mt-0.5">{userCertified ? 'Certified' : 'Score /100'}</p>
         </div>
       </div>
 
-      {/* ── User Certification Banner ── */}
+      {/* User Certification Banner / Button */}
       {userCertified ? (
         <div className="mt-4 p-3 bg-accent-green/15 rounded-xl border border-accent-green/30 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
@@ -204,8 +214,7 @@ export default function HalalBadge({ result, ticker }: Props) {
             <div>
               <p className="text-xs font-semibold text-accent-green">You marked this as Halal Certified</p>
               <p className="text-[10px] text-secondary mt-0.5">
-                Source: {certForm.source}
-                {certForm.notes ? ` · ${certForm.notes}` : ''}
+                Source: {certForm.source}{certForm.notes ? ` · ${certForm.notes}` : ''}
               </p>
             </div>
           </div>
@@ -228,11 +237,10 @@ export default function HalalBadge({ result, ticker }: Props) {
         </button>
       )}
 
-      {/* ── Certification Form ── */}
+      {/* Certification Form */}
       {showCertForm && !userCertified && (
         <div className="mt-3 p-4 bg-surface-2 rounded-xl border border-accent-green/30 space-y-3">
           <p className="text-xs font-semibold text-white">Add your Halal certification</p>
-
           <div>
             <label className="label block mb-1.5">Your name *</label>
             <input
@@ -243,7 +251,6 @@ export default function HalalBadge({ result, ticker }: Props) {
               placeholder="e.g. Adam Malik"
             />
           </div>
-
           <div>
             <label className="label block mb-1.5">Verification source *</label>
             <select
@@ -251,12 +258,9 @@ export default function HalalBadge({ result, ticker }: Props) {
               onChange={e => setCertForm(p => ({ ...p, source: e.target.value }))}
               className="input w-full"
             >
-              {SOURCES.map(s => (
-                <option key={s} value={s}>{s}</option>
-              ))}
+              {SOURCES.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
-
           <div>
             <label className="label block mb-1.5">Notes (optional)</label>
             <input
@@ -264,21 +268,18 @@ export default function HalalBadge({ result, ticker }: Props) {
               value={certForm.notes}
               onChange={e => setCertForm(p => ({ ...p, notes: e.target.value }))}
               className="input w-full"
-              placeholder="e.g. Verified via Musaffa on March 2026, score 89"
+              placeholder="e.g. Verified via Musaffa March 2026, score 89"
             />
           </div>
-
           <div className="p-3 bg-surface-3 rounded-lg">
             <p className="text-[10px] text-muted leading-relaxed">
-              By certifying, you confirm you have personally verified this stock's Halal status using a reliable source. This is visible to other StockWise users and does not constitute a Fatwa.
+              By certifying, you confirm you have personally verified this stock's Halal status
+              using a reliable source. This is visible to other StockWise users and does not
+              constitute a Fatwa.
             </p>
           </div>
-
           <div className="flex gap-2">
-            <button
-              onClick={() => setShowCertForm(false)}
-              className="btn-secondary flex-1"
-            >
+            <button onClick={() => setShowCertForm(false)} className="btn-secondary flex-1">
               Cancel
             </button>
             <button
@@ -286,63 +287,43 @@ export default function HalalBadge({ result, ticker }: Props) {
               disabled={saving || !certForm.certified_name.trim()}
               className="btn-primary flex-1 flex items-center justify-center gap-2"
             >
-              {saving
-                ? <Loader2 size={14} className="animate-spin" />
-                : <><BadgeCheck size={14} /><span>Certify as Halal</span></>
-              }
+              {saving ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <>
+                  <BadgeCheck size={14} />
+                  <span>Certify as Halal</span>
+                </>
+              )}
             </button>
           </div>
         </div>
       )}
 
-      {/* ── Community Certifications List ── */}
-      {certifications.length > 0 && (
-        <div className="mt-3">
-          <button
-            onClick={() => setExpanded(prev => prev ? prev : !prev)}
-            className="flex items-center gap-2 text-xs text-secondary hover:text-white transition-colors w-full"
-          >
-            <Users size={12} />
-            <span>{certifications.length} community certification{certifications.length > 1 ? 's' : ''}</span>
-            <ChevronDown size={12} className="ml-auto" />
-          </button>
-        </div>
-      )}
-
-      {/* ── Three Screens Summary ── */}
+      {/* Three Screens Summary */}
       <div className="grid grid-cols-3 gap-2 mt-4">
-        <div className={`p-2.5 rounded-lg border text-center ${
-          result.security_type_check.passed
-            ? 'bg-accent-green/10 border-accent-green/20'
-            : 'bg-accent-red/10 border-accent-red/20'
-        }`}>
+        <div className={`p-2.5 rounded-lg border text-center ${result.security_type_check.passed ? 'bg-accent-green/10 border-accent-green/20' : 'bg-accent-red/10 border-accent-red/20'}`}>
           <p className="text-[10px] uppercase tracking-wide text-muted mb-1">Security</p>
           <p className={`text-xs font-semibold ${result.security_type_check.passed ? 'text-accent-green' : 'text-accent-red'}`}>
             {result.security_type_check.passed ? '✅ Pass' : '❌ Fail'}
           </p>
         </div>
-        <div className={`p-2.5 rounded-lg border text-center ${
-          result.business_check.passed
-            ? 'bg-accent-green/10 border-accent-green/20'
-            : 'bg-accent-red/10 border-accent-red/20'
-        }`}>
+        <div className={`p-2.5 rounded-lg border text-center ${result.business_check.passed ? 'bg-accent-green/10 border-accent-green/20' : 'bg-accent-red/10 border-accent-red/20'}`}>
           <p className="text-[10px] uppercase tracking-wide text-muted mb-1">Business</p>
           <p className={`text-xs font-semibold ${result.business_check.passed ? 'text-accent-green' : 'text-accent-red'}`}>
             {result.business_check.passed ? '✅ Pass' : '❌ Fail'}
           </p>
         </div>
         <div className={`p-2.5 rounded-lg border text-center ${
-          result.financial_check.overall_passed === true
-            ? 'bg-accent-green/10 border-accent-green/20'
-            : result.financial_check.overall_passed === false
-            ? 'bg-accent-red/10 border-accent-red/20'
-            : 'bg-surface-3 border-border'
+          result.financial_check.overall_passed === true ? 'bg-accent-green/10 border-accent-green/20'
+          : result.financial_check.overall_passed === false ? 'bg-accent-red/10 border-accent-red/20'
+          : 'bg-surface-3 border-border'
         }`}>
           <p className="text-[10px] uppercase tracking-wide text-muted mb-1">Financial</p>
           <p className={`text-xs font-semibold ${
             result.financial_check.overall_passed === true ? 'text-accent-green'
-              : result.financial_check.overall_passed === false ? 'text-accent-red'
-              : 'text-secondary'
+            : result.financial_check.overall_passed === false ? 'text-accent-red'
+            : 'text-secondary'
           }`}>
             {result.financial_check.overall_passed === true ? '✅ Pass'
               : result.financial_check.overall_passed === false ? '❌ Fail'
@@ -362,6 +343,19 @@ export default function HalalBadge({ result, ticker }: Props) {
         </div>
       )}
 
+      {/* Community count shortcut */}
+      {certifications.length > 0 && !expanded && (
+        <div className="mt-3">
+          <button
+            onClick={() => setExpanded(true)}
+            className="flex items-center gap-2 text-xs text-secondary hover:text-white transition-colors"
+          >
+            <Users size={12} />
+            <span>{certifications.length} community certification{certifications.length > 1 ? 's' : ''} — click to view</span>
+          </button>
+        </div>
+      )}
+
       {/* Expand toggle */}
       <button
         onClick={() => setExpanded(!expanded)}
@@ -371,18 +365,16 @@ export default function HalalBadge({ result, ticker }: Props) {
         {expanded ? 'Hide' : 'Show'} full analysis
       </button>
 
-      {/* ── Expanded Detail ── */}
+      {/* Expanded Detail */}
       {expanded && (
         <div className="mt-4 space-y-4 border-t border-border pt-4">
 
           {/* Community Certifications */}
           {certifications.length > 0 && (
             <div>
-              <p className="text-xs font-semibold text-white mb-3">
-                Community Certifications ({certifications.length})
-              </p>
+              <p className="text-xs font-semibold text-white mb-3">Community Certifications ({certifications.length})</p>
               <div className="space-y-2">
-                {certifications.map((cert, i) => (
+                {certifications.map(cert => (
                   <div key={cert.id} className="flex items-start gap-3 p-3 bg-accent-green/8 rounded-xl border border-accent-green/20">
                     <div className="w-8 h-8 rounded-full bg-accent-green/20 flex items-center justify-center shrink-0">
                       <span className="text-xs font-bold text-accent-green">
@@ -396,24 +388,16 @@ export default function HalalBadge({ result, ticker }: Props) {
                           <BadgeCheck size={9} /> Halal Certified
                         </span>
                       </div>
-                      <p className="text-[10px] text-secondary mt-0.5">
-                        via {cert.source}
-                      </p>
-                      {cert.notes && (
-                        <p className="text-[10px] text-muted mt-1 italic">{cert.notes}</p>
-                      )}
+                      <p className="text-[10px] text-secondary mt-0.5">via {cert.source}</p>
+                      {cert.notes && <p className="text-[10px] text-muted mt-1 italic">{cert.notes}</p>}
                       <p className="text-[10px] text-muted mt-1">
-                        {new Date(cert.created_at).toLocaleDateString('en-US', {
-                          month: 'long', day: 'numeric', year: 'numeric'
-                        })}
+                        {new Date(cert.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
                       </p>
                     </div>
                   </div>
                 ))}
               </div>
-              <p className="text-[10px] text-muted mt-2">
-                Community certifications are personal verifications, not official Fatwas.
-              </p>
+              <p className="text-[10px] text-muted mt-2">Community certifications are personal verifications, not official Fatwas.</p>
             </div>
           )}
 
@@ -423,11 +407,9 @@ export default function HalalBadge({ result, ticker }: Props) {
             <div className="space-y-1.5 text-xs text-secondary">
               <p><span className="text-white font-medium">Type 1:</span> Pure halal — fully permissible business, no interest dealings</p>
               <p><span className="text-white font-medium">Type 2:</span> Pure haram — primary business is prohibited</p>
-              <p><span className="text-white font-medium">Type 3:</span> Mixed — permissible primary business with some incidental haram</p>
+              <p><span className="text-white font-medium">Type 3:</span> Mixed — permissible primary business with some incidental haram (most public companies)</p>
             </div>
-            <p className={`text-xs font-semibold mt-2 ${cfg.color}`}>
-              {ticker} is: {result.company_type_label}
-            </p>
+            <p className={`text-xs font-semibold mt-2 ${cfg.color}`}>{ticker} is: {result.company_type_label}</p>
           </div>
 
           {/* Screen 1 */}
@@ -435,9 +417,7 @@ export default function HalalBadge({ result, ticker }: Props) {
             <p className="text-xs font-semibold text-white mb-2">Screen 1 — Security Type</p>
             <div className={`p-3 rounded-xl border ${result.security_type_check.passed ? 'bg-accent-green/8 border-accent-green/20' : 'bg-accent-red/8 border-accent-red/20'}`}>
               <p className="text-xs text-secondary leading-relaxed">{result.security_type_check.reason}</p>
-              <p className="text-[10px] text-muted mt-1">
-                Prohibited: fixed income, preferred shares, convertible notes — all guarantee returns (riba)
-              </p>
+              <p className="text-[10px] text-muted mt-1">Prohibited: fixed income, preferred shares, convertible notes — all guarantee returns (riba)</p>
             </div>
           </div>
 
@@ -463,20 +443,20 @@ export default function HalalBadge({ result, ticker }: Props) {
               <RatioRow
                 label="Interest-bearing debt ratio"
                 threshold="Total interest-bearing debt ≤ 30% of market cap"
-                status={flagToStatus(result.financial_check.debt_ratio_flag)}
-                note={result.financial_check.reason ?? ''}
+                status={result.financial_check.debt_ratio.status}
+                note={result.financial_check.debt_ratio.note}
               />
               <RatioRow
                 label="Interest-bearing deposit ratio"
                 threshold="Total interest-bearing deposits ≤ 30% of market cap"
-                status={flagToStatus(result.financial_check.deposit_ratio_flag)}
-                note={result.financial_check.reason ?? ''}
+                status={result.financial_check.deposit_ratio.status}
+                note={result.financial_check.deposit_ratio.note}
               />
               <RatioRow
                 label="Non-permissible income ratio"
                 threshold="Haram income ≤ 5% of total revenue"
-                status={flagToStatus(result.financial_check.haram_income_ratio_flag)}
-                note={result.financial_check.reason ?? ''}
+                status={result.financial_check.haram_income_ratio.status}
+                note={result.financial_check.haram_income_ratio.note}
               />
             </div>
             <p className="text-[10px] text-muted mt-2 leading-relaxed">
