@@ -7,6 +7,8 @@ import RecommendationPanel from '@/components/stock/RecommendationPanel';
 import NewsPanel from '@/components/stock/NewsPanel';
 import AddStockButtons from '@/components/stock/AddStockButtons';
 import HalalBadge from '@/components/stock/HalalBadge';
+import ShareholdersPanel from '@/components/stock/ShareholdersPanel';
+import FundamentalsPanel from '@/components/stock/FundamentalsPanel';
 import { screenStock } from '@/services/halal-screener';
 import { TrendingUp, TrendingDown } from 'lucide-react';
 
@@ -18,15 +20,17 @@ export default async function StockDetailPage({ params }: { params: Promise<{ ti
 
   const [stock, history] = await Promise.all([
     fetchStockData(upper),
-    fetchPriceHistory(upper, '6mo')
+    fetchPriceHistory(upper, '6mo'),
   ]);
 
   if (!stock) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center gap-4">
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center gap-4 px-4">
         <p className="text-2xl">⚠️</p>
         <h2 className="text-xl font-semibold text-white">Could not load {upper}</h2>
-        <p className="text-secondary text-sm">Market data is temporarily unavailable. Please try again in a moment.</p>
+        <p className="text-secondary text-sm max-w-sm">
+          Market data is temporarily unavailable. Please try again in a moment.
+        </p>
       </div>
     );
   }
@@ -44,57 +48,68 @@ export default async function StockDetailPage({ params }: { params: Promise<{ ti
     ? ((stock.price - stock.fifty_two_week_low) / (stock.fifty_two_week_high - stock.fifty_two_week_low)) * 100
     : null;
 
-  // Run halal screening
   const halalResult = screenStock(stock);
 
   return (
-    <div className="space-y-5 page-enter">
+    <div className="space-y-4 page-enter">
 
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-        <div className="flex items-start gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-surface-2 border border-border flex items-center justify-center shrink-0">
-            <span className="font-mono font-bold text-accent-green text-lg">{upper.slice(0, 2)}</span>
+        <div className="flex items-start gap-3">
+          <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-surface-2 border border-border flex items-center justify-center shrink-0">
+            <span className="font-mono font-bold text-accent-green text-base sm:text-lg">
+              {upper.slice(0, 2)}
+            </span>
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-white">{upper}</h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-white">{upper}</h1>
             <p className="text-secondary text-sm">{stock.name}</p>
             {stock.sector && (
-              <div className="flex gap-1.5 mt-1.5">
+              <div className="flex flex-wrap gap-1.5 mt-1.5">
                 <span className="badge-neutral text-[10px]">{stock.sector}</span>
-                {stock.industry && <span className="badge-neutral text-[10px]">{stock.industry}</span>}
+                {stock.industry && stock.industry !== stock.sector && (
+                  <span className="badge-neutral text-[10px]">{stock.industry}</span>
+                )}
               </div>
             )}
           </div>
         </div>
-        <AddStockButtons ticker={upper} inPortfolio={!!inP} inWatchlist={!!inW} />
+        <div className="sm:shrink-0">
+          <AddStockButtons ticker={upper} inPortfolio={!!inP} inWatchlist={!!inW} />
+        </div>
       </div>
 
       {/* Price Hero */}
       <div className="card">
-        <div className="flex items-end gap-4 mb-1">
-          <span className="text-4xl font-mono font-bold text-white">{formatPrice(stock.price)}</span>
-          <div className={"flex items-center gap-1.5 mb-1 " + (isPos ? 'text-accent-green' : 'text-accent-red')}>
-            {isPos ? <TrendingUp size={18} /> : <TrendingDown size={18} />}
-            <span className="font-mono font-semibold">{formatPercent(stock.change_percent)}</span>
-            <span className="text-sm">({formatPrice(stock.change)} today)</span>
+        <div className="flex flex-wrap items-end gap-3 mb-1">
+          <span className="text-3xl sm:text-4xl font-mono font-bold text-white">
+            {formatPrice(stock.price)}
+          </span>
+          <div className={`flex items-center gap-1.5 mb-0.5 ${isPos ? 'text-accent-green' : 'text-accent-red'}`}>
+            {isPos ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
+            <span className="font-mono font-semibold text-sm sm:text-base">
+              {formatPercent(stock.change_percent)}
+            </span>
+            <span className="text-xs sm:text-sm">
+              ({formatPrice(stock.change)} today)
+            </span>
           </div>
         </div>
-        <p className="text-[11px] text-muted mb-4">Prices delayed ~15 min</p>
+        <p className="text-[11px] text-muted mb-4">Prices delayed ~15 min · Data via Finnhub</p>
         <PriceChart ticker={upper} initialData={history} currentPrice={stock.price} />
       </div>
 
-      {/* Fundamentals */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      {/* Key Stats */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
         {[
           { label: 'Market Cap', value: formatMarketCap(stock.market_cap) },
           { label: 'P/E Ratio', value: stock.pe_ratio ? stock.pe_ratio.toFixed(1) : 'N/A' },
           { label: 'Beta', value: stock.beta ? stock.beta.toFixed(2) : 'N/A' },
           { label: 'Dividend Yield', value: stock.dividend_yield ? (stock.dividend_yield * 100).toFixed(2) + '%' : 'None' },
         ].map(s => (
-          <div key={s.label} className="card">
-            <p className="label mb-2">{s.label}</p>
-            <p className="stat-value text-base">{s.value}</p>
+          <div key={s.label} className="card p-3 sm:p-5">
+            <p className="label mb-1.5 text-[10px] sm:text-xs">{s.label}</p>
+            <p className="font-mono text-sm sm:text-base font-semibold text-white">{s.value}</p>
           </div>
         ))}
       </div>
@@ -110,7 +125,7 @@ export default async function StockDetailPage({ params }: { params: Promise<{ ti
           </div>
           <div className="h-2 bg-surface-3 rounded-full overflow-hidden">
             <div
-              className="h-full bg-gradient-to-r from-accent-red via-accent-yellow to-accent-green rounded-full"
+              className="h-full bg-gradient-to-r from-accent-red via-accent-yellow to-accent-green rounded-full transition-all"
               style={{ width: Math.min(100, Math.max(0, fiftyTwoPct)) + '%' }}
             />
           </div>
@@ -120,23 +135,23 @@ export default async function StockDetailPage({ params }: { params: Promise<{ ti
         </div>
       )}
 
-      {/* Volume */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="card">
-          <p className="label mb-2">Volume</p>
-          <p className="stat-value text-base">
+      {/* Volume + Last Updated */}
+      <div className="grid grid-cols-2 gap-2 sm:gap-3">
+        <div className="card p-3 sm:p-5">
+          <p className="label mb-1.5">Volume</p>
+          <p className="font-mono text-sm font-semibold text-white">
             {stock.volume ? (stock.volume / 1e6).toFixed(2) + 'M' : 'N/A'}
           </p>
         </div>
-        <div className="card">
-          <p className="label mb-2">Last Updated</p>
-          <p className="stat-value text-base text-sm">
-            {new Date(stock.last_updated).toLocaleTimeString()}
+        <div className="card p-3 sm:p-5">
+          <p className="label mb-1.5">Last Updated</p>
+          <p className="font-mono text-sm font-semibold text-white">
+            {new Date(stock.last_updated).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
           </p>
         </div>
       </div>
 
-      {/* Description */}
+      {/* About */}
       {stock.description && (
         <div className="card">
           <p className="label mb-3">About {stock.name}</p>
@@ -146,11 +161,17 @@ export default async function StockDetailPage({ params }: { params: Promise<{ ti
         </div>
       )}
 
+      {/* Fundamental Analysis */}
+      <FundamentalsPanel ticker={upper} />
+
       {/* AI Recommendation */}
       <RecommendationPanel ticker={upper} />
 
       {/* News */}
       <NewsPanel ticker={upper} />
+
+      {/* Top Shareholders */}
+      <ShareholdersPanel ticker={upper} />
 
       {/* Halal Badge */}
       <HalalBadge result={halalResult} ticker={upper} />
