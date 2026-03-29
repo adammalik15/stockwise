@@ -218,13 +218,13 @@ export default function HalalBadge({ result, ticker }: Props) {
 
           {/* Musaffa link */}
           
-            href={result.musaffa_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-accent-green/15 border border-accent-green/30 text-accent-green text-sm font-medium hover:bg-accent-green/20 transition-colors"
-          >
-            Verify on Musaffa.com <ExternalLink size={13} />
-          </a>
+           href={result.musaffa_url}
+  target="_blank"
+  rel="noopener noreferrer"
+  className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-accent-green/15 border border-accent-green/30 text-accent-green text-sm font-medium hover:bg-accent-green/20 transition-colors">
+  <span>Verify on Musaffa.com</span>
+  <ExternalLink size={13} />
+</a>
         </div>
       )}
     </div>
