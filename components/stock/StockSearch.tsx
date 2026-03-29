@@ -11,7 +11,7 @@ export default function StockSearch({ placeholder = 'Search stocks, ETFs...' }: 
   const [open, setOpen] = useState(false);
   const [adding, setAdding] = useState<string | null>(null);
   const [addModal, setAddModal] = useState<{ ticker: string; name: string } | null>(null);
-  const searchTimeout = useRef<NodeJS.Timeout>();
+const searchTimeout = useRef<NodeJS.Timeout | undefined>(undefined);
   const router = useRouter();
 
   const handleInput = useCallback((val: string) => {
