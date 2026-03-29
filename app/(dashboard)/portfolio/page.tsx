@@ -2,8 +2,10 @@
 import { useEffect, useState, useCallback } from 'react';
 import StockCard from '@/components/stock/StockCard';
 import StockSearch from '@/components/stock/StockSearch';
-import { Briefcase, Download, Loader2, TrendingUp, TrendingDown, Pencil, X, Check } from 'lucide-react';
+import { Briefcase, Download, Loader2, Pencil, X, Plus, Minus, Hash } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+
+type EditMode = 'add' | 'reduce' | 'set';
 
 export default function PortfolioPage() {
   const [holdings, setHoldings] = useState<any[]>([]);
