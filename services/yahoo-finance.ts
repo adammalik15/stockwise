@@ -59,26 +59,28 @@ export async function fetchPriceHistory(
   const map: Record<string, number> = {
     '1mo': 30, '3mo': 90, '6mo': 180, '1y': 365, '2y': 730,
   };
-  const from = Math.floor(Date.now() / 1000) - (map[period] ?? 180) * 86400;
+  const days = map[period] ?? 180;
+  const from = to - days * 86400;
+  // Use weekly for longer periods, daily for shorter
   const resolution = period === '1mo' ? 'D' : period === '3mo' ? 'D' : 'W';
 
   try {
     const res = await fetch(
-      `${BASE}/stock/candle?symbol=${upper}&resolution=${resolution}&from=${from}&to=${to}&token=${FINNHUB_KEY}`
+      `${BASE}/stock/candle?symbol=${upper}&resolution=${resolution}&from=${from}&to=${to}&token=${FINNHUB_KEY}`,
+      { next: { revalidate: 3600 } }
     );
     const data = await res.json();
-
-    if (data.s !== 'ok') return [];
-
+    if (!data || data.s !== 'ok' || !data.t) return [];
     return data.t.map((timestamp: number, i: number) => ({
       date: new Date(timestamp * 1000).toISOString().split('T')[0],
-      open: data.o[i],
-      high: data.h[i],
-      low: data.l[i],
-      close: data.c[i],
-      volume: data.v[i],
+      open: data.o[i] ?? 0,
+      high: data.h[i] ?? 0,
+      low: data.l[i] ?? 0,
+      close: data.c[i] ?? 0,
+      volume: data.v[i] ?? 0,
     }));
   } catch (e) {
+    console.error('fetchPriceHistory error:', e);
     return [];
   }
 }
