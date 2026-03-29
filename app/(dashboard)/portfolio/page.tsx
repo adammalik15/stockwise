@@ -38,22 +38,39 @@ export default function PortfolioPage() {
   }
 
   async function saveEdit() {
-    if (!editItem) return;
-    setSaving(true);
-    try {
-      const supabase = createClient();
-      await supabase.from('portfolios').update({
-        quantity: parseFloat(editForm.quantity),
-        purchase_price: parseFloat(editForm.purchase_price),
-        purchase_date: editForm.purchase_date,
-        notes: editForm.notes || null,
-      }).eq('id', editItem.id);
-      setEditItem(null);
-      load();
-    } finally {
-      setSaving(false);
+  if (!editItem) return;
+  setSaving(true);
+  try {
+    const supabase = createClient();
+    
+    // Calculate new quantity based on action
+    let newQuantity: number;
+    if (editMode === 'add') {
+      newQuantity = editItem.quantity + parseFloat(editForm.quantity);
+    } else if (editMode === 'reduce') {
+      newQuantity = editItem.quantity - parseFloat(editForm.quantity);
+      if (newQuantity <= 0) {
+        alert('Quantity cannot be zero or negative. Use Remove to delete the holding.');
+        setSaving(false);
+        return;
+      }
+    } else {
+      newQuantity = parseFloat(editForm.quantity);
     }
+
+    await supabase.from('portfolios').update({
+      quantity: newQuantity,
+      purchase_price: parseFloat(editForm.purchase_price),
+      purchase_date: editForm.purchase_date,
+      notes: editForm.notes || null,
+    }).eq('id', editItem.id);
+
+    setEditItem(null);
+    load();
+  } finally {
+    setSaving(false);
   }
+}
 
   function exportCSV() {
     const headers = ['Ticker', 'Type', 'Qty', 'Buy Price', 'Date', 'Current Price', 'Value', 'P&L', 'Return%'];
