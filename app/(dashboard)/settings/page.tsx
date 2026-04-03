@@ -53,7 +53,9 @@ export default function SettingsPage() {
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    setSettings(getSettings());
+    const loaded = getSettings();
+    setSettings(loaded);
+    applyTheme(loaded.theme);
     const supabase = createClient();
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (user?.email) setUserEmail(user.email);
@@ -61,8 +63,14 @@ export default function SettingsPage() {
   }, []);
 
   function update<K extends keyof UISettings>(key: K, value: UISettings[K]) {
-    setSettings(prev => ({ ...prev, [key]: value }));
-    if (key === 'theme') applyTheme(value as Theme);
+    setSettings(prev => {
+      const next = { ...prev, [key]: value };
+      if (key === 'theme') {
+        applyTheme(value as Theme);
+        localStorage.setItem('sw_settings', JSON.stringify(next));
+      }
+      return next;
+    });
   }
 
   function saveSettings() {

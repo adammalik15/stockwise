@@ -15,6 +15,7 @@ interface Certification {
   certified_name: string;
   source: string;
   notes?: string;
+  user_verdict?: 'halal' | 'haram' | 'doubtful';
   created_at: string;
 }
 
@@ -82,6 +83,7 @@ export default function HalalBadge({ result, ticker }: Props) {
     certified_name: '',
     source: 'Musaffa.com',
     notes: '',
+    user_verdict: 'halal' as 'halal' | 'haram' | 'doubtful',
   });
   const [saving, setSaving] = useState(false);
 
@@ -100,6 +102,7 @@ export default function HalalBadge({ result, ticker }: Props) {
             certified_name: d.user_cert.certified_name ?? '',
             source: d.user_cert.source ?? 'Musaffa.com',
             notes: d.user_cert.notes ?? '',
+            user_verdict: d.user_cert.user_verdict ?? 'halal',
           });
         }
       })
@@ -208,11 +211,17 @@ export default function HalalBadge({ result, ticker }: Props) {
 
       {/* User Certification Banner / Button */}
       {userCertified ? (
-        <div className="mt-4 p-3 bg-accent-green/15 rounded-xl border border-accent-green/30 flex items-center justify-between gap-3">
+        <div className={`mt-4 p-3 rounded-xl border flex items-center justify-between gap-3 ${
+          certForm.user_verdict === 'haram' ? 'bg-accent-red/15 border-accent-red/30'
+          : certForm.user_verdict === 'doubtful' ? 'bg-accent-yellow/15 border-accent-yellow/30'
+          : 'bg-accent-green/15 border-accent-green/30'
+        }`}>
           <div className="flex items-center gap-2">
-            <BadgeCheck size={16} className="text-accent-green shrink-0" />
+            <BadgeCheck size={16} className={`shrink-0 ${certForm.user_verdict === 'haram' ? 'text-accent-red' : certForm.user_verdict === 'doubtful' ? 'text-accent-yellow' : 'text-accent-green'}`} />
             <div>
-              <p className="text-xs font-semibold text-accent-green">You marked this as Halal Certified</p>
+              <p className={`text-xs font-semibold ${certForm.user_verdict === 'haram' ? 'text-accent-red' : certForm.user_verdict === 'doubtful' ? 'text-accent-yellow' : 'text-accent-green'}`}>
+                You marked this as {certForm.user_verdict === 'haram' ? '❌ Haram' : certForm.user_verdict === 'doubtful' ? '⚠️ Doubtful' : '✅ Halal'}
+              </p>
               <p className="text-[10px] text-secondary mt-0.5">
                 Source: {certForm.source}{certForm.notes ? ` · ${certForm.notes}` : ''}
               </p>
@@ -233,14 +242,32 @@ export default function HalalBadge({ result, ticker }: Props) {
           className="mt-4 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-surface-2 border border-border hover:bg-surface-3 hover:border-accent-green/40 text-secondary hover:text-accent-green text-xs font-medium transition-all"
         >
           <BadgeCheck size={14} />
-          <span>Mark as Halal Certified</span>
+          <span>Submit Your Verdict</span>
         </button>
       )}
 
       {/* Certification Form */}
       {showCertForm && !userCertified && (
         <div className="mt-3 p-4 bg-surface-2 rounded-xl border border-accent-green/30 space-y-3">
-          <p className="text-xs font-semibold text-white">Add your Halal certification</p>
+          <p className="text-xs font-semibold text-white">Submit your verdict</p>
+          <div>
+            <label className="label block mb-1.5">Verdict *</label>
+            <div className="grid grid-cols-3 gap-2">
+              {(['halal', 'haram', 'doubtful'] as const).map(v => (
+                <button key={v} type="button"
+                  onClick={() => setCertForm(p => ({ ...p, user_verdict: v }))}
+                  className={`py-2 px-3 rounded-lg border text-xs font-medium transition-all capitalize ${
+                    certForm.user_verdict === v
+                      ? v === 'halal' ? 'bg-accent-green/15 border-accent-green/40 text-accent-green'
+                        : v === 'haram' ? 'bg-accent-red/15 border-accent-red/40 text-accent-red'
+                        : 'bg-accent-yellow/15 border-accent-yellow/40 text-accent-yellow'
+                      : 'bg-surface-3 border-border text-secondary hover:text-white'
+                  }`}>
+                  {v === 'halal' ? '✅' : v === 'haram' ? '❌' : '⚠️'} {v.charAt(0).toUpperCase() + v.slice(1)}
+                </button>
+              ))}
+            </div>
+          </div>
           <div>
             <label className="label block mb-1.5">Your name *</label>
             <input
@@ -292,7 +319,7 @@ export default function HalalBadge({ result, ticker }: Props) {
               ) : (
                 <>
                   <BadgeCheck size={14} />
-                  <span>Certify as Halal</span>
+                  <span>Submit Verdict</span>
                 </>
               )}
             </button>
@@ -384,8 +411,12 @@ export default function HalalBadge({ result, ticker }: Props) {
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
                         <p className="text-xs font-semibold text-white">{cert.certified_name}</p>
-                        <span className="badge bg-accent-green/15 text-accent-green text-[10px]">
-                          <BadgeCheck size={9} /> Halal Certified
+                        <span className={`badge text-[10px] ${
+                          cert.user_verdict === 'haram' ? 'bg-accent-red/15 text-accent-red'
+                          : cert.user_verdict === 'doubtful' ? 'bg-accent-yellow/15 text-accent-yellow'
+                          : 'bg-accent-green/15 text-accent-green'
+                        }`}>
+                          {cert.user_verdict === 'haram' ? '❌ Haram' : cert.user_verdict === 'doubtful' ? '⚠️ Doubtful' : <><BadgeCheck size={9} /> Halal</>}
                         </span>
                       </div>
                       <p className="text-[10px] text-secondary mt-0.5">via {cert.source}</p>
