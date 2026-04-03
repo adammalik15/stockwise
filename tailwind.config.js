@@ -10,11 +10,11 @@ module.exports = {
     extend: {
       colors: {
         surface: {
-          DEFAULT: '#0a0a0f',
-          1: '#111118',
-          2: '#18181f',
-          3: '#1f1f28',
-          4: '#26262f',
+          DEFAULT: 'var(--surface)',
+          1: 'var(--surface-1)',
+          2: 'var(--surface-2)',
+          3: 'var(--surface-3)',
+          4: 'var(--surface-4)',
         },
         accent: {
           green: '#00d4aa',
@@ -24,8 +24,8 @@ module.exports = {
           purple: '#9b5de5',
         },
         border: {
-          DEFAULT: '#2a2a35',
-          subtle: '#1e1e28',
+          DEFAULT: 'var(--border)',
+          subtle: 'var(--border-subtle)',
         },
       },
       backgroundImage: {

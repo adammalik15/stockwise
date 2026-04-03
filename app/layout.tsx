@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" className="dark" suppressHydrationWarning>
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
         {/* Apply saved theme before page renders to avoid flash */}
@@ -19,13 +19,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           try {
             const s = JSON.parse(localStorage.getItem('sw_settings') || '{}');
             const theme = s.theme || 'dark';
+            const h = document.documentElement;
             if (theme === 'light') {
-              document.documentElement.classList.remove('dark');
+              h.classList.remove('dark'); h.classList.add('light');
             } else if (theme === 'system') {
-              const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-              document.documentElement.classList.toggle('dark', prefersDark);
+              const dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+              h.classList.toggle('dark', dark); h.classList.toggle('light', !dark);
             } else {
-              document.documentElement.classList.add('dark');
+              h.classList.add('dark'); h.classList.remove('light');
             }
           } catch(e) {}
         `}} />

@@ -1,12 +1,25 @@
 'use client';
 import { useState } from 'react';
 import Link from 'next/link';
-import { TrendingUp, Loader2 } from 'lucide-react';
+import { TrendingUp, Loader2, Eye, EyeOff } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+
+function passwordStrength(pw: string) {
+  let s = 0;
+  if (pw.length >= 8) s++;
+  if (/[A-Z]/.test(pw)) s++;
+  if (/[0-9]/.test(pw)) s++;
+  if (/[^A-Za-z0-9]/.test(pw)) s++;
+  if (s <= 1) return { score: s, label: 'Weak', color: 'bg-accent-red', width: '25%' };
+  if (s === 2) return { score: s, label: 'Fair', color: 'bg-accent-yellow', width: '50%' };
+  if (s === 3) return { score: s, label: 'Good', color: 'bg-accent-blue', width: '75%' };
+  return { score: s, label: 'Strong', color: 'bg-accent-green', width: '100%' };
+}
 
 export default function SignupPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
@@ -55,7 +68,27 @@ export default function SignupPage() {
             </div>
             <div>
               <label className="label block mb-1.5">Password</label>
-              <input type="password" required minLength={6} value={password} onChange={e => setPassword(e.target.value)} className="input w-full" placeholder="Min. 6 characters" />
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  required minLength={8} value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  className="input w-full pr-10" placeholder="Min. 8 characters"
+                  autoComplete="new-password"
+                />
+                <button type="button" onClick={() => setShowPassword(p => !p)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-secondary transition-colors">
+                  {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                </button>
+              </div>
+              {password && (() => { const s = passwordStrength(password); return (
+                <div className="mt-2">
+                  <div className="h-1 bg-surface-3 rounded-full overflow-hidden">
+                    <div className={`h-full rounded-full transition-all duration-300 ${s.color}`} style={{ width: s.width }} />
+                  </div>
+                  <p className={`text-[11px] mt-1 ${s.score <= 1 ? 'text-accent-red' : s.score === 2 ? 'text-accent-yellow' : s.score === 3 ? 'text-accent-blue' : 'text-accent-green'}`}>{s.label} password</p>
+                </div>
+              ); })()}
             </div>
             {error && <p className="text-sm text-accent-red bg-accent-red/10 border border-accent-red/20 rounded-lg px-3 py-2">{error}</p>}
             <button type="submit" disabled={loading} className="btn-primary w-full py-2.5">

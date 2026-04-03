@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { Moon, Sun, Monitor, Save, Check, Palette, Eye } from 'lucide-react';
+import { Moon, Sun, Monitor, Save, Check, Palette, Eye, Shield, ShieldCheck, Loader2, X } from 'lucide-react';
 
 type Theme = 'dark' | 'light' | 'system';
 
@@ -26,14 +26,14 @@ const DEFAULTS: UISettings = {
 
 function applyTheme(theme: Theme) {
   if (typeof document === 'undefined') return;
-  const html = document.documentElement;
+  const h = document.documentElement;
   if (theme === 'light') {
-    html.classList.remove('dark');
+    h.classList.remove('dark'); h.classList.add('light');
   } else if (theme === 'system') {
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    html.classList.toggle('dark', prefersDark);
+    const dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    h.classList.toggle('dark', dark); h.classList.toggle('light', !dark);
   } else {
-    html.classList.add('dark');
+    h.classList.add('dark'); h.classList.remove('light');
   }
 }
 
@@ -52,6 +52,18 @@ export default function SettingsPage() {
   const [userEmail, setUserEmail] = useState('');
   const [saved, setSaved] = useState(false);
 
+  // 2FA state
+  const [mfaEnabled, setMfaEnabled] = useState(false);
+  const [mfaFactorId, setMfaFactorId] = useState<string | null>(null);
+  const [mfaSetup, setMfaSetup] = useState(false);
+  const [mfaQR, setMfaQR] = useState('');
+  const [mfaSecret, setMfaSecret] = useState('');
+  const [mfaEnrollId, setMfaEnrollId] = useState('');
+  const [mfaCode, setMfaCode] = useState('');
+  const [mfaError, setMfaError] = useState('');
+  const [mfaLoading, setMfaLoading] = useState(false);
+  const [confirmDisable, setConfirmDisable] = useState(false);
+
   useEffect(() => {
     const loaded = getSettings();
     setSettings(loaded);
@@ -60,7 +72,50 @@ export default function SettingsPage() {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (user?.email) setUserEmail(user.email);
     });
+    // Check MFA status
+    supabase.auth.mfa.listFactors().then(({ data }) => {
+      const verified = data?.totp?.find(f => f.status === 'verified');
+      if (verified) { setMfaEnabled(true); setMfaFactorId(verified.id); }
+    });
   }, []);
+
+  async function enableMFA() {
+    setMfaLoading(true); setMfaError('');
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase.auth.mfa.enroll({ factorType: 'totp' });
+      if (error) throw error;
+      setMfaQR(data.totp.qr_code);
+      setMfaSecret(data.totp.secret);
+      setMfaEnrollId(data.id);
+      setMfaSetup(true);
+    } catch (err: any) { setMfaError(err.message); }
+    finally { setMfaLoading(false); }
+  }
+
+  async function verifyMFA() {
+    setMfaLoading(true); setMfaError('');
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId: mfaEnrollId, code: mfaCode });
+      if (error) throw error;
+      setMfaEnabled(true); setMfaFactorId(mfaEnrollId);
+      setMfaSetup(false); setMfaQR(''); setMfaCode('');
+    } catch (err: any) { setMfaError(err.message); }
+    finally { setMfaLoading(false); }
+  }
+
+  async function disableMFA() {
+    if (!mfaFactorId) return;
+    setMfaLoading(true); setMfaError('');
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.auth.mfa.unenroll({ factorId: mfaFactorId });
+      if (error) throw error;
+      setMfaEnabled(false); setMfaFactorId(null); setConfirmDisable(false);
+    } catch (err: any) { setMfaError(err.message); }
+    finally { setMfaLoading(false); }
+  }
 
   function update<K extends keyof UISettings>(key: K, value: UISettings[K]) {
     setSettings(prev => {
@@ -127,7 +182,7 @@ export default function SettingsPage() {
             </button>
           ))}
         </div>
-        <p className="text-[10px] text-muted mt-3">Theme applies immediately when selected. Save to persist.</p>
+        <p className="text-[10px] text-muted mt-3">Theme applies and saves immediately when selected.</p>
       </div>
 
       <div className="card">
@@ -147,6 +202,99 @@ export default function SettingsPage() {
           <Toggle label="Compact View" desc="Smaller cards with less whitespace"
             value={settings.compact_view} onChange={v=>update('compact_view',v)} />
         </div>
+      </div>
+
+      {/* Security / 2FA */}
+      <div className="card">
+        <div className="flex items-center gap-2 mb-4">
+          <Shield size={15} className="text-accent-blue" />
+          <p className="text-sm font-semibold text-white">Security</p>
+        </div>
+        <div className="flex items-center justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-white">Two-Factor Authentication</p>
+            <p className="text-xs text-secondary mt-0.5">
+              {mfaEnabled ? 'Your account is protected with TOTP authentication' : 'Add an extra layer of security with an authenticator app'}
+            </p>
+          </div>
+          {mfaLoading && !mfaSetup ? (
+            <Loader2 size={16} className="animate-spin text-muted shrink-0" />
+          ) : mfaEnabled ? (
+            confirmDisable ? (
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="text-xs text-secondary">Sure?</span>
+                <button onClick={disableMFA} disabled={mfaLoading}
+                  className="px-2.5 py-1.5 rounded-lg bg-accent-red/15 border border-accent-red/30 text-accent-red text-xs font-medium hover:bg-accent-red/20 transition-colors">
+                  {mfaLoading ? <Loader2 size={12} className="animate-spin" /> : 'Yes, disable'}
+                </button>
+                <button onClick={() => setConfirmDisable(false)}
+                  className="p-1.5 rounded-lg hover:bg-surface-3 text-muted hover:text-white transition-colors">
+                  <X size={14} />
+                </button>
+              </div>
+            ) : (
+              <button onClick={() => setConfirmDisable(true)}
+                className="px-3 py-1.5 rounded-lg bg-surface-3 border border-border text-secondary text-xs font-medium hover:text-white transition-colors shrink-0">
+                Disable
+              </button>
+            )
+          ) : (
+            <button onClick={enableMFA} disabled={mfaLoading || mfaSetup}
+              className="px-3 py-1.5 rounded-lg bg-accent-green/15 border border-accent-green/30 text-accent-green text-xs font-medium hover:bg-accent-green/20 transition-colors shrink-0">
+              Enable
+            </button>
+          )}
+        </div>
+
+        {mfaEnabled && !confirmDisable && (
+          <div className="mt-3 flex items-center gap-2 p-2.5 bg-accent-green/8 rounded-lg border border-accent-green/20">
+            <ShieldCheck size={14} className="text-accent-green shrink-0" />
+            <p className="text-xs text-accent-green">2FA is active — your account requires a verification code on each sign-in</p>
+          </div>
+        )}
+
+        {mfaSetup && (
+          <div className="mt-4 p-4 bg-surface-2 rounded-xl border border-accent-blue/30 space-y-4">
+            <div>
+              <p className="text-xs font-semibold text-white mb-1">Scan with your authenticator app</p>
+              <p className="text-xs text-secondary">Use Google Authenticator, Authy, or any TOTP-compatible app.</p>
+            </div>
+            {mfaQR && (
+              <div className="flex justify-center">
+                <img src={mfaQR} alt="2FA QR Code" className="w-40 h-40 rounded-lg bg-white p-2" />
+              </div>
+            )}
+            <div>
+              <p className="text-[10px] text-muted mb-1 uppercase tracking-wider">Manual entry key</p>
+              <p className="text-xs font-mono text-secondary bg-surface-3 rounded-lg px-3 py-2 break-all select-all">{mfaSecret}</p>
+            </div>
+            <div>
+              <label className="label block mb-1.5">Enter the 6-digit code from your app</label>
+              <input
+                type="text" inputMode="numeric" maxLength={6}
+                value={mfaCode}
+                onChange={e => setMfaCode(e.target.value.replace(/\D/g, ''))}
+                className="input w-full text-center text-lg tracking-[0.5em] font-mono"
+                placeholder="000000" autoFocus
+              />
+            </div>
+            {mfaError && (
+              <p className="text-sm text-accent-red bg-accent-red/10 border border-accent-red/20 rounded-lg px-3 py-2">{mfaError}</p>
+            )}
+            <div className="flex gap-2">
+              <button onClick={() => { setMfaSetup(false); setMfaQR(''); setMfaCode(''); setMfaError(''); }}
+                className="btn-secondary flex-1">Cancel</button>
+              <button onClick={verifyMFA} disabled={mfaLoading || mfaCode.length !== 6}
+                className="btn-primary flex-1 flex items-center justify-center gap-2">
+                {mfaLoading ? <Loader2 size={14} className="animate-spin" /> : <><ShieldCheck size={14} /> Verify &amp; Enable</>}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {mfaError && !mfaSetup && (
+          <p className="mt-3 text-sm text-accent-red bg-accent-red/10 border border-accent-red/20 rounded-lg px-3 py-2">{mfaError}</p>
+        )}
       </div>
 
       <div className="card">

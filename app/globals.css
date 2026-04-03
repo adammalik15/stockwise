@@ -2,14 +2,41 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Dark theme (default) ── */
 :root {
-  --color-bg: #0a0a0f;
+  --surface: #0a0a0f;
+  --surface-1: #111118;
+  --surface-2: #18181f;
+  --surface-3: #1f1f28;
+  --surface-4: #26262f;
+  --border: #2a2a35;
+  --border-subtle: #1e1e28;
+  --text-primary: #ffffff;
   --color-text-muted: #6b6b7e;
   --color-text-secondary: #9898ad;
 }
 
+/* ── Light theme ── */
+html.light {
+  --surface: #f1f5f9;
+  --surface-1: #ffffff;
+  --surface-2: #f8fafc;
+  --surface-3: #e2e8f0;
+  --surface-4: #cbd5e1;
+  --border: #cbd5e1;
+  --border-subtle: #e2e8f0;
+  --text-primary: #0f172a;
+  --color-text-muted: #94a3b8;
+  --color-text-secondary: #475569;
+}
+
+/* In light mode, override text-white to use a dark foreground */
+html.light .text-white {
+  color: var(--text-primary);
+}
+
 * { box-sizing: border-box; }
-body { background-color: var(--color-bg); }
+body { background-color: var(--surface); }
 
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
