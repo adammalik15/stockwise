@@ -1,52 +1,20 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { TrendingUp, Loader2, Eye, EyeOff, Check } from 'lucide-react';
-import { createClient } from '@/lib/supabase/client';
 
 function ResetPasswordContent() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
-  const [ready, setReady] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
-
-  useEffect(() => {
-    const code = searchParams.get('code');
-    if (!code) {
-      setError('Invalid reset link. Please request a new password reset.');
-      setLoading(false);
-      return;
-    }
-    const supabase = createClient();
-    supabase.auth.exchangeCodeForSession(code).then(({ error }) => {
-      if (error) setError('This reset link has expired or already been used. Please request a new one.');
-      else setReady(true);
-      setLoading(false);
-    });
-  }, [searchParams]);
-
-  async function handleReset(e: React.FormEvent) {
-    e.preventDefault();
-    if (password !== confirmPassword) { setError('Passwords do not match'); return; }
-    if (password.length < 8) { setError('Password must be at least 8 characters'); return; }
-    setError(''); setSaving(true);
-    try {
-      const supabase = createClient();
-      const { error } = await supabase.auth.updateUser({ password });
-      if (error) throw error;
-      setSuccess(true);
-      setTimeout(() => router.push('/login'), 3000);
-    } catch (err: any) { setError(err.message ?? 'Failed to reset password'); }
-    finally { setSaving(false); }
-  }
+  const code = searchParams.get('code');
 
   const requirements = [
     { label: 'At least 8 characters', met: password.length >= 8 },
@@ -54,6 +22,31 @@ function ResetPasswordContent() {
     { label: 'One number', met: /[0-9]/.test(password) },
     { label: 'One special character', met: /[^A-Za-z0-9]/.test(password) },
   ];
+  const allMet = requirements.every(r => r.met);
+
+  async function handleReset(e: React.FormEvent) {
+    e.preventDefault();
+    if (password !== confirmPassword) { setError('Passwords do not match'); return; }
+    if (!allMet) { setError('Password does not meet all requirements'); return; }
+    if (!code) { setError('Invalid reset link — no code found. Please request a new one.'); return; }
+
+    setError(''); setSaving(true);
+    try {
+      const res = await fetch('/api/auth/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, password }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Failed to reset password');
+      setSuccess(true);
+      setTimeout(() => router.push('/login'), 3000);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <div className="min-h-screen bg-surface flex items-center justify-center px-4">
@@ -68,9 +61,11 @@ function ResetPasswordContent() {
         </div>
 
         <div className="card">
-          {loading ? (
-            <div className="flex justify-center py-8">
-              <Loader2 size={22} className="animate-spin text-accent-green" />
+          {!code ? (
+            <div className="text-center py-4">
+              <h2 className="text-base font-semibold text-white mb-2">Invalid reset link</h2>
+              <p className="text-sm text-secondary mb-4">No reset code found. Please request a new password reset.</p>
+              <Link href="/login" className="text-accent-green hover:underline text-sm">Back to sign in</Link>
             </div>
           ) : success ? (
             <div className="text-center py-4">
@@ -78,14 +73,8 @@ function ResetPasswordContent() {
                 <Check size={22} className="text-accent-green" />
               </div>
               <h2 className="text-lg font-semibold text-white mb-2">Password updated</h2>
-              <p className="text-sm text-secondary mb-4">Your password has been reset successfully. Redirecting to sign in…</p>
+              <p className="text-sm text-secondary mb-4">Your password has been reset. Redirecting to sign in…</p>
               <Link href="/login" className="btn-secondary inline-flex">Go to Sign In</Link>
-            </div>
-          ) : !ready ? (
-            <div className="text-center py-4">
-              <h2 className="text-base font-semibold text-white mb-2">Invalid link</h2>
-              <p className="text-sm text-secondary mb-4">{error}</p>
-              <Link href="/login" className="text-accent-green hover:underline text-sm">Back to sign in</Link>
             </div>
           ) : (
             <>
@@ -129,7 +118,7 @@ function ResetPasswordContent() {
                   />
                 </div>
                 {error && <p className="text-sm text-accent-red bg-accent-red/10 border border-accent-red/20 rounded-lg px-3 py-2">{error}</p>}
-                <button type="submit" disabled={saving || requirements.some(r => !r.met)}
+                <button type="submit" disabled={saving || !allMet || password !== confirmPassword}
                   className="btn-primary w-full py-2.5">
                   {saving ? <Loader2 size={15} className="animate-spin mx-auto" /> : 'Update Password'}
                 </button>

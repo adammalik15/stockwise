@@ -11,6 +11,8 @@ import ShareholdersPanel from '@/components/stock/ShareholdersPanel';
 import FundamentalsPanel from '@/components/stock/FundamentalsPanel';
 import { screenStock } from '@/services/halal-screener';
 import { TrendingUp, TrendingDown } from 'lucide-react';
+import PortfolioPositionPanel from '@/components/stock/PortfolioPositionPanel';
+import ShortTermPanel from '@/components/stock/ShortTermPanel';
 
 export const dynamic = 'force-dynamic';
 
@@ -48,7 +50,7 @@ export default async function StockDetailPage({
   const [{ data: inP }, { data: inW }] = await Promise.all([
     supabase
       .from('portfolios')
-      .select('id')
+      .select('id, term')
       .eq('user_id', user!.id)
       .eq('ticker', upper)
       .maybeSingle(),
@@ -127,6 +129,12 @@ export default async function StockDetailPage({
           currentPrice={stock.price}
         />
       </div>
+
+      {/* ── Portfolio position + transaction history (only shown if user holds the stock) ── */}
+      {inP && <PortfolioPositionPanel ticker={upper} currentPrice={stock.price} />}
+
+      {/* ── Short-term indicators (only for short-term holdings) ── */}
+      {inP?.term === 'short' && <ShortTermPanel ticker={upper} currentPrice={stock.price} />}
 
       {/* ── HALAL BADGE — right after chart, most important for Muslim investors ── */}
       <HalalBadge result={halalResult} ticker={upper} />

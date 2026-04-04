@@ -10,8 +10,8 @@ export default function StockSearch({ placeholder = 'Search stocks, ETFs...' }: 
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const [adding, setAdding] = useState<string | null>(null);
-  const [addModal, setAddModal] = useState<{ ticker: string; name: string } | null>(null);
-const searchTimeout = useRef<NodeJS.Timeout | undefined>(undefined);
+  const [addModal, setAddModal] = useState<{ ticker: string; name: string; type?: string } | null>(null);
+  const searchTimeout = useRef<NodeJS.Timeout | undefined>(undefined);
   const router = useRouter();
 
   const handleInput = useCallback((val: string) => {
@@ -71,7 +71,10 @@ const searchTimeout = useRef<NodeJS.Timeout | undefined>(undefined);
                   <button onClick={e => addToWatchlist(r.ticker, e)} className="p-1.5 rounded-lg bg-surface-4 hover:bg-accent-green/20 text-secondary hover:text-accent-green transition-colors" title="Add to Watchlist">
                     {adding === r.ticker + '-w' ? <Loader2 size={13} className="animate-spin" /> : <Star size={13} />}
                   </button>
-                  <button onClick={e => { e.stopPropagation(); setAddModal({ ticker: r.ticker, name: r.name }); setOpen(false); }} className="p-1.5 rounded-lg bg-surface-4 hover:bg-accent-green/20 text-secondary hover:text-accent-green transition-colors" title="Add to Portfolio">
+                  <button
+                    onClick={e => { e.stopPropagation(); setAddModal({ ticker: r.ticker, name: r.name, type: r.type }); setOpen(false); }}
+                    className="p-1.5 rounded-lg bg-surface-4 hover:bg-accent-green/20 text-secondary hover:text-accent-green transition-colors"
+                    title="Add to Portfolio">
                     <Plus size={13} />
                   </button>
                 </div>
@@ -80,15 +83,40 @@ const searchTimeout = useRef<NodeJS.Timeout | undefined>(undefined);
           </div>
         )}
       </div>
-      {addModal && <AddPortfolioModal ticker={addModal.ticker} name={addModal.name} onClose={() => setAddModal(null)} onSuccess={() => { setAddModal(null); router.refresh(); }} />}
+      {addModal && (
+        <AddPortfolioModal
+          ticker={addModal.ticker} name={addModal.name} stockType={addModal.type}
+          onClose={() => setAddModal(null)}
+          onSuccess={() => { setAddModal(null); router.refresh(); }}
+        />
+      )}
     </>
   );
 }
 
-function AddPortfolioModal({ ticker, name, onClose, onSuccess }: any) {
-  const [form, setForm] = useState({ quantity: '', purchase_price: '', purchase_date: new Date().toISOString().split('T')[0], asset_type: 'stock', notes: '' });
+function AddPortfolioModal({ ticker, name, stockType, onClose, onSuccess }: {
+  ticker: string; name: string; stockType?: string; onClose: () => void; onSuccess: () => void;
+}) {
+  const inferredType = stockType === 'ETP' ? 'etf' : 'stock';
+  const [form, setForm] = useState({
+    quantity: '',
+    purchase_price: '',
+    purchase_date: new Date().toISOString().split('T')[0],
+    asset_type: inferredType,
+    term: 'long',
+    notes: '',
+  });
+  const [loadingPrice, setLoadingPrice] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    fetch(`/api/stocks/${ticker}`)
+      .then(r => r.json())
+      .then(d => { if (d?.price) setForm(p => ({ ...p, purchase_price: String(d.price.toFixed(2)) })); })
+      .catch(() => {})
+      .finally(() => setLoadingPrice(false));
+  }, [ticker]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault(); setError(''); setLoading(true);
@@ -100,8 +128,14 @@ function AddPortfolioModal({ ticker, name, onClose, onSuccess }: any) {
         user_id: user.id, ticker, asset_type: form.asset_type,
         quantity: parseFloat(form.quantity), purchase_price: parseFloat(form.purchase_price),
         purchase_date: form.purchase_date, notes: form.notes || null,
+        term: form.term,
       }, { onConflict: 'user_id,ticker' });
       if (dbError) throw dbError;
+      await supabase.from('portfolio_transactions').insert({
+        user_id: user.id, ticker, type: 'buy',
+        quantity: parseFloat(form.quantity), price: parseFloat(form.purchase_price),
+        date: form.purchase_date, notes: form.notes || null,
+      }).then(() => {});
       onSuccess();
     } catch (err: any) { setError(err.message); }
     finally { setLoading(false); }
@@ -114,18 +148,57 @@ function AddPortfolioModal({ ticker, name, onClose, onSuccess }: any) {
         <p className="text-sm text-secondary mb-5">{ticker} — {name}</p>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
-            <div><label className="label block mb-1.5">Quantity *</label><input type="number" step="any" min="0.000001" required value={form.quantity} onChange={e => setForm(p => ({...p, quantity: e.target.value}))} className="input w-full" placeholder="0.00" /></div>
-            <div><label className="label block mb-1.5">Purchase Price *</label><input type="number" step="any" min="0" required value={form.purchase_price} onChange={e => setForm(p => ({...p, purchase_price: e.target.value}))} className="input w-full" placeholder="0.00" /></div>
+            <div>
+              <label className="label block mb-1.5">Quantity *</label>
+              <input type="number" step="any" min="0.000001" required value={form.quantity}
+                onChange={e => setForm(p => ({ ...p, quantity: e.target.value }))}
+                className="input w-full" placeholder="0.00" />
+            </div>
+            <div>
+              <label className="label block mb-1.5">
+                Purchase Price *{loadingPrice && <span className="text-muted ml-1 text-[10px]">fetching…</span>}
+              </label>
+              <input type="number" step="any" min="0" required value={form.purchase_price}
+                onChange={e => setForm(p => ({ ...p, purchase_price: e.target.value }))}
+                className="input w-full" placeholder="0.00" />
+            </div>
           </div>
-          <div><label className="label block mb-1.5">Purchase Date *</label><input type="date" required value={form.purchase_date} onChange={e => setForm(p => ({...p, purchase_date: e.target.value}))} className="input w-full" /></div>
-          <div><label className="label block mb-1.5">Asset Type</label>
-            <select value={form.asset_type} onChange={e => setForm(p => ({...p, asset_type: e.target.value}))} className="input w-full">
-              <option value="stock">Stock</option><option value="etf">ETF</option><option value="commodity">Commodity</option><option value="crypto">Crypto</option>
-            </select>
+          <div>
+            <label className="label block mb-1.5">Purchase Date *</label>
+            <input type="date" required value={form.purchase_date}
+              onChange={e => setForm(p => ({ ...p, purchase_date: e.target.value }))}
+              className="input w-full" />
           </div>
-          <div><label className="label block mb-1.5">Notes (optional)</label><input type="text" value={form.notes} onChange={e => setForm(p => ({...p, notes: e.target.value}))} className="input w-full" placeholder="e.g. Long-term hold" /></div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="label block mb-1.5">Asset Type</label>
+              <select value={form.asset_type} onChange={e => setForm(p => ({ ...p, asset_type: e.target.value }))} className="input w-full">
+                <option value="stock">Stock</option>
+                <option value="etf">ETF</option>
+                <option value="commodity">Commodity</option>
+                <option value="crypto">Crypto</option>
+              </select>
+            </div>
+            <div>
+              <label className="label block mb-1.5">Horizon</label>
+              <select value={form.term} onChange={e => setForm(p => ({ ...p, term: e.target.value }))} className="input w-full">
+                <option value="long">Long-Term</option>
+                <option value="short">Short-Term</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className="label block mb-1.5">Notes (optional)</label>
+            <input type="text" value={form.notes} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))}
+              className="input w-full" placeholder="e.g. Long-term hold" />
+          </div>
           {error && <p className="text-sm text-accent-red">{error}</p>}
-          <div className="flex gap-3"><button type="button" onClick={onClose} className="btn-secondary flex-1">Cancel</button><button type="submit" disabled={loading} className="btn-primary flex-1">{loading ? <Loader2 size={14} className="animate-spin mx-auto" /> : 'Add'}</button></div>
+          <div className="flex gap-3">
+            <button type="button" onClick={onClose} className="btn-secondary flex-1">Cancel</button>
+            <button type="submit" disabled={loading} className="btn-primary flex-1">
+              {loading ? <Loader2 size={14} className="animate-spin mx-auto" /> : 'Add'}
+            </button>
+          </div>
         </form>
       </div>
     </div>

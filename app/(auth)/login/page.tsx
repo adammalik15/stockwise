@@ -7,10 +7,13 @@ import { createClient } from '@/lib/supabase/client';
 
 type View = 'login' | 'forgot' | 'mfa';
 
+const REMEMBER_KEY = 'sw_remember_until';
+
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [view, setView] = useState<View>('login');
@@ -26,7 +29,16 @@ export default function LoginPage() {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
 
-      // Check if MFA is required
+      if (rememberMe) {
+        const until = new Date();
+        until.setDate(until.getDate() + 30);
+        localStorage.setItem(REMEMBER_KEY, until.toISOString());
+      } else {
+        localStorage.removeItem(REMEMBER_KEY);
+      }
+      // Mark current tab as active (SessionGuard won't log out mid-session)
+      sessionStorage.setItem('sw_active', '1');
+
       const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
       if (aal?.nextLevel === 'aal2' && aal.nextLevel !== aal.currentLevel) {
         const { data: factors } = await supabase.auth.mfa.listFactors();
@@ -77,7 +89,6 @@ export default function LoginPage() {
         </div>
 
         <div className="card">
-          {/* ── Login ── */}
           {view === 'login' && (
             <>
               <h2 className="text-lg font-semibold text-white mb-5">Sign in to your account</h2>
@@ -111,6 +122,16 @@ export default function LoginPage() {
                     </button>
                   </div>
                 </div>
+
+                {/* Remember me */}
+                <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                  <div onClick={() => setRememberMe(p => !p)}
+                    className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${rememberMe ? 'bg-accent-green border-accent-green' : 'border-border bg-surface-3'}`}>
+                    {rememberMe && <svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4l3 3 5-6" stroke="#0a0a0f" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                  </div>
+                  <span className="text-xs text-secondary">Remember me for 30 days</span>
+                </label>
+
                 {error && <p className="text-sm text-accent-red bg-accent-red/10 border border-accent-red/20 rounded-lg px-3 py-2">{error}</p>}
                 <button type="submit" disabled={loading} className="btn-primary w-full py-2.5">
                   {loading ? <Loader2 size={15} className="animate-spin mx-auto" /> : 'Sign In'}
@@ -124,7 +145,6 @@ export default function LoginPage() {
             </>
           )}
 
-          {/* ── MFA ── */}
           {view === 'mfa' && (
             <>
               <div className="flex items-center gap-3 mb-5">
@@ -155,7 +175,6 @@ export default function LoginPage() {
             </>
           )}
 
-          {/* ── Forgot password ── */}
           {view === 'forgot' && (
             <>
               <button onClick={() => { setView('login'); setError(''); setResetSent(false); }}
@@ -168,12 +187,12 @@ export default function LoginPage() {
                     <TrendingUp size={20} className="text-accent-green" />
                   </div>
                   <h2 className="text-base font-semibold text-white mb-2">Check your email</h2>
-                  <p className="text-sm text-secondary">We sent a password reset link to <strong className="text-white">{email}</strong>.</p>
+                  <p className="text-sm text-secondary">We sent a reset link to <strong className="text-white">{email}</strong>.</p>
                 </div>
               ) : (
                 <>
                   <h2 className="text-lg font-semibold text-white mb-1">Reset your password</h2>
-                  <p className="text-sm text-secondary mb-5">Enter your email and we&apos;ll send you a reset link.</p>
+                  <p className="text-sm text-secondary mb-5">Enter your email and we&apos;ll send a reset link.</p>
                   <form onSubmit={handleForgotPassword} className="space-y-4">
                     <div>
                       <label className="label block mb-1.5">Email</label>
@@ -192,7 +211,6 @@ export default function LoginPage() {
             </>
           )}
         </div>
-
         <p className="text-center text-xs text-muted mt-6">Prices delayed ~15 min. Not financial advice.</p>
       </div>
     </div>

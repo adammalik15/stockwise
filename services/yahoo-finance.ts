@@ -52,31 +52,40 @@ export async function fetchStockData(ticker: string): Promise<StockData | null> 
 
 export async function fetchPriceHistory(
   ticker: string,
-  period: '1mo' | '3mo' | '6mo' | '1y' | '2y' = '6mo'
+  period: '1d' | '1mo' | '3mo' | '6mo' | '1y' | '2y' = '6mo'
 ): Promise<PricePoint[]> {
   const upper = ticker.toUpperCase();
   const now = Math.floor(Date.now() / 1000);
-  const map: Record<string, number> = {
-    '1mo': 30, '3mo': 90, '6mo': 180, '1y': 365, '2y': 730,
-  };
-  const days = map[period] ?? 180;
-  const from = now - days * 86400;
+
+  let resolution: string;
+  let from: number;
+
+  if (period === '1d') {
+    // 5-minute intraday candles for the current trading day
+    resolution = '5';
+    // Start from today at midnight UTC (Finnhub uses ET market hours)
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+    from = Math.floor(today.getTime() / 1000);
+  } else {
+    resolution = 'D';
+    const map: Record<string, number> = {
+      '1mo': 30, '3mo': 90, '6mo': 180, '1y': 365, '2y': 730,
+    };
+    from = now - (map[period] ?? 180) * 86400;
+  }
 
   try {
-    // Try daily resolution first
-    const url = `${BASE}/stock/candle?symbol=${upper}&resolution=D&from=${from}&to=${now}&token=${FINNHUB_KEY}`;
+    const url = `${BASE}/stock/candle?symbol=${upper}&resolution=${resolution}&from=${from}&to=${now}&token=${FINNHUB_KEY}`;
     const res = await fetch(url, { cache: 'no-store' });
     const data = await res.json();
 
-    console.log(`Chart data for ${upper}:`, data?.s, data?.t?.length);
-
     if (!data || data.s !== 'ok' || !data.t || data.t.length === 0) {
-      console.error(`No chart data for ${upper}:`, data?.s);
       return [];
     }
 
     return data.t.map((timestamp: number, i: number) => ({
-      date: new Date(timestamp * 1000).toISOString().split('T')[0],
+      date: new Date(timestamp * 1000).toISOString(),
       open: data.o[i] ?? 0,
       high: data.h[i] ?? 0,
       low: data.l[i] ?? 0,

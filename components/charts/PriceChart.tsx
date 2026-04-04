@@ -3,7 +3,23 @@ import { useState, useEffect } from 'react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip } from 'recharts';
 import type { PricePoint } from '@/types';
 
-type Period = '1mo' | '3mo' | '6mo' | '1y' | '2y';
+type Period = '1d' | '1mo' | '3mo' | '6mo' | '1y' | '2y';
+
+function formatXTick(dateStr: string, period: Period) {
+  const d = new Date(dateStr);
+  if (period === '1d') {
+    return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+  }
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function formatTooltipDate(dateStr: string, period: Period) {
+  const d = new Date(dateStr);
+  if (period === '1d') {
+    return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  }
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: period === '2y' ? 'numeric' : undefined });
+}
 
 export default function PriceChart({ ticker, initialData, currentPrice }: {
   ticker: string;
@@ -15,7 +31,6 @@ export default function PriceChart({ ticker, initialData, currentPrice }: {
   const [loading, setLoading] = useState(false);
   const [width, setWidth] = useState(600);
 
-  // Measure container width on client side
   useEffect(() => {
     function updateWidth() {
       const container = document.getElementById('chart-container');
@@ -48,9 +63,7 @@ export default function PriceChart({ ticker, initialData, currentPrice }: {
     const d = payload[0].payload;
     return (
       <div className="bg-surface-2 border border-border rounded-lg px-3 py-2 text-xs">
-        <p className="text-secondary mb-1">
-          {new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-        </p>
+        <p className="text-secondary mb-1">{formatTooltipDate(d.date, period)}</p>
         <p className="font-mono font-semibold text-white">${d.close?.toFixed(2)}</p>
       </div>
     );
@@ -58,11 +71,10 @@ export default function PriceChart({ ticker, initialData, currentPrice }: {
 
   return (
     <div>
-      {/* Period selector */}
       <div className="flex gap-1 mb-4">
-        {(['1mo', '3mo', '6mo', '1y', '2y'] as Period[]).map(p => (
+        {(['1d', '1mo', '3mo', '6mo', '1y', '2y'] as Period[]).map(p => (
           <button key={p} onClick={() => changePeriod(p)}
-            className={"px-3 py-1 rounded-lg text-xs font-medium transition-all " +
+            className={'px-3 py-1 rounded-lg text-xs font-medium transition-all ' +
               (period === p
                 ? 'bg-accent-green/15 text-accent-green'
                 : 'text-secondary hover:text-white hover:bg-surface-2'
@@ -72,7 +84,6 @@ export default function PriceChart({ ticker, initialData, currentPrice }: {
         ))}
       </div>
 
-      {/* Chart */}
       <div id="chart-container" className="w-full" style={{ height: '200px', position: 'relative' }}>
         {loading && (
           <div className="absolute inset-0 flex items-center justify-center bg-surface-1/60 z-10 rounded-lg">
@@ -84,12 +95,7 @@ export default function PriceChart({ ticker, initialData, currentPrice }: {
             <p className="text-sm text-muted">No chart data available</p>
           </div>
         ) : (
-          <AreaChart
-            width={width}
-            height={200}
-            data={data}
-            margin={{ top: 5, right: 5, left: 0, bottom: 5 }}
-          >
+          <AreaChart width={width} height={200} data={data} margin={{ top: 5, right: 5, left: 0, bottom: 5 }}>
             <defs>
               <linearGradient id="pg" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor={stroke} stopOpacity={0.15} />
@@ -98,28 +104,23 @@ export default function PriceChart({ ticker, initialData, currentPrice }: {
             </defs>
             <XAxis
               dataKey="date"
-              tickFormatter={d => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+              tickFormatter={d => formatXTick(d, period)}
               tick={{ fill: '#6b6b7e', fontSize: 10 }}
-              axisLine={false}
-              tickLine={false}
+              axisLine={false} tickLine={false}
               interval="preserveStartEnd"
             />
             <YAxis
               domain={['auto', 'auto']}
               tick={{ fill: '#6b6b7e', fontSize: 10 }}
-              axisLine={false}
-              tickLine={false}
+              axisLine={false} tickLine={false}
               tickFormatter={v => '$' + v.toFixed(0)}
               width={55}
             />
             <Tooltip content={<Tip />} />
             <Area
-              type="monotone"
-              dataKey="close"
-              stroke={stroke}
-              strokeWidth={2}
-              fill="url(#pg)"
-              dot={false}
+              type="monotone" dataKey="close"
+              stroke={stroke} strokeWidth={2}
+              fill="url(#pg)" dot={false}
               activeDot={{ r: 4, fill: stroke, strokeWidth: 0 }}
             />
           </AreaChart>

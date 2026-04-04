@@ -31,7 +31,14 @@ export default function SignupPage() {
       const { error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: window.location.origin + '/dashboard' } });
       if (error) throw error;
       setSuccess(true);
-    } catch (err: any) { setError(err.message ?? 'Signup failed'); }
+    } catch (err: any) {
+      const msg: string = err.message ?? 'Signup failed';
+      if (msg.toLowerCase().includes('already registered') || msg.toLowerCase().includes('already exists') || msg.toLowerCase().includes('user already')) {
+        setError('__duplicate__');
+      } else {
+        setError(msg);
+      }
+    }
     finally { setLoading(false); }
   }
 
@@ -90,7 +97,19 @@ export default function SignupPage() {
                 </div>
               ); })()}
             </div>
-            {error && <p className="text-sm text-accent-red bg-accent-red/10 border border-accent-red/20 rounded-lg px-3 py-2">{error}</p>}
+            {error && error !== '__duplicate__' && (
+              <p className="text-sm text-accent-red bg-accent-red/10 border border-accent-red/20 rounded-lg px-3 py-2">{error}</p>
+            )}
+            {error === '__duplicate__' && (
+              <div className="text-sm bg-accent-yellow/10 border border-accent-yellow/20 rounded-lg px-3 py-2">
+                <p className="text-accent-yellow font-medium">An account with this email already exists.</p>
+                <p className="text-secondary mt-0.5 text-xs">
+                  <a href="/login" className="text-accent-green hover:underline">Sign in instead</a>
+                  {' · '}
+                  <a href="/login" className="text-accent-green hover:underline" onClick={() => {}}>Forgot password?</a>
+                </p>
+              </div>
+            )}
             <button type="submit" disabled={loading} className="btn-primary w-full py-2.5">
               {loading ? <Loader2 size={15} className="animate-spin mx-auto" /> : 'Create Account'}
             </button>
