@@ -1,4 +1,3 @@
-import { notFound } from 'next/navigation';
 import { fetchStockData, fetchPriceHistory } from '@/services/yahoo-finance';
 import { formatMarketCap, formatPrice, formatPercent } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/server';

@@ -13,23 +13,14 @@ export default function SessionGuard() {
 
   useEffect(() => {
     const until = localStorage.getItem(REMEMBER_KEY);
-    if (!until) {
-      // No remember-me set — check if Supabase has a session anyway
-      // (happens when Supabase refreshed the token automatically).
-      // Only sign out if the session was established without remember-me,
-      // i.e. sessionStorage flag is missing (new tab/browser restart).
-      const activeThisTab = sessionStorage.getItem('sw_active');
-      if (!activeThisTab) {
-        createClient().auth.signOut().then(() => router.replace('/login'));
-        return;
-      }
-    } else if (new Date(until) < new Date()) {
-      // Remember-me has expired
+    if (until && new Date(until) < new Date()) {
+      // Remember-me key exists but has expired — sign out
       localStorage.removeItem(REMEMBER_KEY);
       createClient().auth.signOut().then(() => router.replace('/login'));
-      return;
     }
-    // Mark this tab as active so SessionGuard doesn't re-trigger within the same tab
+    // If no key exists the session is treated as valid (user logged in before
+    // remember-me was introduced, or opted for session-only and is still in
+    // the same browser tab via sessionStorage).
     sessionStorage.setItem('sw_active', '1');
   }, [router]);
 

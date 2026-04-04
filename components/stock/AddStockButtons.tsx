@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Star, Plus, Loader2, Check, X } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
@@ -71,13 +71,13 @@ function AddModal({ ticker, stockType, onClose, onSuccess }: {
   const [error, setError] = useState('');
 
   // Auto-fetch current price on mount
-  useState(() => {
+  useEffect(() => {
     fetch(`/api/stocks/${ticker}`)
       .then(r => r.json())
       .then(d => { if (d?.price) setForm(p => ({ ...p, purchase_price: String(d.price.toFixed(2)) })); })
       .catch(() => {})
       .finally(() => setLoadingPrice(false));
-  });
+  }, [ticker]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault(); setLoading(true);
