@@ -2,6 +2,48 @@ const MODEL = 'claude-sonnet-4-6';
 const ANTHROPIC_VERSION = '2023-06-01';
 const API_URL = 'https://api.anthropic.com/v1/messages';
 
+// ─── Usage Limiter ──────────────────────────────────────────────────────────
+
+const DAILY_LIMITS = {
+  recommendation: 10,   // per user per day
+  goal_analysis: 5,
+  portfolio_analysis: 3,
+};
+
+export async function checkAndIncrementUsage(
+  userId: string,
+  type: keyof typeof DAILY_LIMITS,
+  supabase: any
+): Promise<{ allowed: boolean; remaining: number }> {
+  const today = new Date().toISOString().split('T')[0];
+  const countField = `${type}_count`;
+
+  // Upsert today's row
+  const { data, error } = await supabase
+    .from('ai_usage')
+    .upsert({ user_id: userId, date: today }, { onConflict: 'user_id,date' })
+    .select()
+    .single();
+
+  if (error || !data) return { allowed: true, remaining: DAILY_LIMITS[type] };
+
+  const current = data[countField] ?? 0;
+  const limit = DAILY_LIMITS[type];
+
+  if (current >= limit) {
+    return { allowed: false, remaining: 0 };
+  }
+
+  // Increment
+  await supabase
+    .from('ai_usage')
+    .update({ [countField]: current + 1 })
+    .eq('user_id', userId)
+    .eq('date', today);
+
+  return { allowed: true, remaining: limit - current - 1 };
+}
+
 async function callClaude(systemText: string, userPrompt: string, maxTokens = 800): Promise<string> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
 
