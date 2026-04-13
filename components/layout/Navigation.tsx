@@ -4,26 +4,47 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard, Star, Briefcase, BarChart2,
-  Compass, LogOut, TrendingUp, Menu, X, Settings, Target
+  Compass, LogOut, TrendingUp, Menu, X, Settings,
+  Target, Newspaper, CalendarDays,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 
-const navItems = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/watchlist', label: 'Watchlist', icon: Star },
-  { href: '/portfolio', label: 'Portfolio', icon: Briefcase },
-  { href: '/portfolio-analysis', label: 'Analysis', icon: BarChart2 },
-  { href: '/discover', label: 'Discover', icon: Compass },
-  { href: '/goals', label: 'My Goals', icon: Target },
-  { href: '/settings', label: 'Settings', icon: Settings },
+const NAV_GROUPS = [
+  {
+    label: 'Portfolio',
+    items: [
+      { href: '/dashboard',          label: 'Dashboard',    icon: LayoutDashboard },
+      { href: '/watchlist',          label: 'Watchlist',    icon: Star            },
+      { href: '/portfolio',          label: 'Portfolio',    icon: Briefcase       },
+      { href: '/portfolio-analysis', label: 'Analysis',     icon: BarChart2       },
+      { href: '/goals',              label: 'My Goals',     icon: Target          },
+    ],
+  },
+  {
+    label: 'Intelligence',
+    items: [
+      { href: '/news-intelligence',  label: 'News Intel',   icon: Newspaper       },
+      { href: '/earnings',           label: 'Earnings',     icon: CalendarDays    },
+    ],
+  },
+  {
+    label: 'Explore',
+    items: [
+      { href: '/discover',           label: 'Discover',     icon: Compass         },
+      { href: '/settings',           label: 'Settings',     icon: Settings        },
+    ],
+  },
 ];
 
+// Flat list for active check
+const allNavItems = NAV_GROUPS.flatMap(g => g.items);
+
 export default function Navigation() {
-  const pathname = usePathname();
-  const router = useRouter();
+  const pathname    = usePathname();
+  const router      = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [userEmail,  setUserEmail]  = useState<string | null>(null);
 
   useEffect(() => {
     async function getUser() {
@@ -34,10 +55,7 @@ export default function Navigation() {
     getUser();
   }, []);
 
-  // Close mobile menu on route change
-  useEffect(() => {
-    setMobileOpen(false);
-  }, [pathname]);
+  useEffect(() => { setMobileOpen(false); }, [pathname]);
 
   async function handleSignOut() {
     const supabase = createClient();
@@ -50,47 +68,54 @@ export default function Navigation() {
     : null;
 
   const NavLinks = () => (
-    <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
-      {navItems.map(({ href, label, icon: Icon }) => {
-        const active = pathname === href || pathname.startsWith(href + '/');
-        return (
-          <Link
-            key={href}
-            href={href}
-            className={`flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium transition-all duration-150 group ${
-              active
-                ? 'bg-accent-green/10 text-accent-green'
-                : 'text-secondary hover:bg-surface-2 hover:text-white'
-            }`}
-          >
-            <Icon
-              size={18}
-              className={active ? 'text-accent-green shrink-0' : 'text-muted group-hover:text-white shrink-0'}
-            />
-            <span>{label}</span>
-            {active && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-accent-green shrink-0" />}
-          </Link>
-        );
-      })}
+    <nav className="flex-1 px-3 py-4 space-y-4 overflow-y-auto">
+      {NAV_GROUPS.map(group => (
+        <div key={group.label}>
+          <p className="px-3 text-[10px] font-semibold text-muted uppercase tracking-widest mb-1">
+            {group.label}
+          </p>
+          <div className="space-y-0.5">
+            {group.items.map(({ href, label, icon: Icon }) => {
+              const active = pathname === href || pathname.startsWith(href + '/');
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 group ${
+                    active
+                      ? 'bg-accent-green/10 text-accent-green'
+                      : 'text-secondary hover:bg-surface-2 hover:text-white'
+                  }`}
+                >
+                  <Icon
+                    size={16}
+                    className={active ? 'text-accent-green shrink-0' : 'text-muted group-hover:text-white shrink-0'}
+                  />
+                  <span>{label}</span>
+                  {active && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-accent-green shrink-0" />}
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      ))}
     </nav>
   );
 
   return (
     <>
-      {/* ── Desktop Sidebar ───────────────────────────────── */}
+      {/* ── Desktop Sidebar ── */}
       <aside className="hidden lg:flex flex-col w-56 bg-surface-1 border-r border-border h-screen sticky top-0 shrink-0">
-        {/* Logo */}
         <div className="flex items-center gap-2.5 px-4 py-5 border-b border-border shrink-0">
           <div className="w-8 h-8 rounded-lg bg-accent-green flex items-center justify-center shrink-0">
             <TrendingUp size={16} className="text-surface" />
           </div>
           <div>
-            <span className="font-bold text-white text-lg leading-none">StockWise</span>
-            <p className="text-[10px] text-muted mt-0.5">by Adam</p>
+            <span className="font-bold text-white text-lg leading-none">Ziqron</span>
+            <p className="text-[10px] text-muted mt-0.5">Invest with Intention</p>
           </div>
         </div>
 
-        {/* User */}
         {displayName && (
           <div className="mx-3 mt-3 p-3 rounded-xl bg-surface-2 border border-border flex items-center gap-2.5 shrink-0">
             <div className="w-8 h-8 rounded-full bg-accent-green/20 flex items-center justify-center shrink-0">
@@ -107,7 +132,6 @@ export default function Navigation() {
 
         <NavLinks />
 
-        {/* Footer */}
         <div className="px-3 py-4 border-t border-border shrink-0">
           <p className="px-3 text-[10px] text-muted mb-2 leading-relaxed">
             Prices delayed ~15 min. Not financial advice.
@@ -116,22 +140,19 @@ export default function Navigation() {
             onClick={handleSignOut}
             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-secondary hover:bg-surface-2 hover:text-white transition-all"
           >
-            <LogOut size={17} className="text-muted shrink-0" />
+            <LogOut size={16} className="text-muted shrink-0" />
             Sign Out
           </button>
         </div>
       </aside>
 
-      {/* ── Mobile Header ─────────────────────────────────── */}
+      {/* ── Mobile Header ── */}
       <header className="lg:hidden flex items-center justify-between px-4 py-3 bg-surface-1 border-b border-border sticky top-0 z-40 w-full">
         <div className="flex items-center gap-2">
           <div className="w-7 h-7 rounded-lg bg-accent-green flex items-center justify-center shrink-0">
             <TrendingUp size={14} className="text-surface" />
           </div>
-          <div>
-            <span className="font-bold text-white text-sm">StockWise</span>
-            <span className="text-[10px] text-muted ml-1.5">by Adam</span>
-          </div>
+          <span className="font-bold text-white text-sm">Ziqron</span>
         </div>
         <div className="flex items-center gap-2">
           {displayName && (
@@ -151,36 +172,23 @@ export default function Navigation() {
         </div>
       </header>
 
-      {/* ── Mobile Drawer ─────────────────────────────────── */}
+      {/* ── Mobile Drawer ── */}
       {mobileOpen && (
         <>
-          {/* Backdrop */}
-          <div
-            className="lg:hidden fixed inset-0 bg-black/70 z-40"
-            onClick={() => setMobileOpen(false)}
-          />
-          {/* Drawer */}
+          <div className="lg:hidden fixed inset-0 bg-black/70 z-40" onClick={() => setMobileOpen(false)} />
           <div className="lg:hidden fixed top-0 left-0 h-full w-72 bg-surface-1 border-r border-border z-50 flex flex-col">
-            {/* Drawer header */}
             <div className="flex items-center justify-between px-4 py-4 border-b border-border shrink-0">
               <div className="flex items-center gap-2">
                 <div className="w-7 h-7 rounded-lg bg-accent-green flex items-center justify-center">
                   <TrendingUp size={14} className="text-surface" />
                 </div>
-                <div>
-                  <span className="font-bold text-white">StockWise</span>
-                  <span className="text-[10px] text-muted ml-1.5">by Adam</span>
-                </div>
+                <span className="font-bold text-white">Ziqron</span>
               </div>
-              <button
-                onClick={() => setMobileOpen(false)}
-                className="p-1.5 rounded-lg bg-surface-2 text-white"
-              >
+              <button onClick={() => setMobileOpen(false)} className="p-1.5 rounded-lg bg-surface-2 text-white">
                 <X size={16} />
               </button>
             </div>
 
-            {/* User info */}
             {displayName && (
               <div className="mx-3 mt-3 p-3 rounded-xl bg-surface-2 border border-border flex items-center gap-2.5 shrink-0">
                 <div className="w-9 h-9 rounded-full bg-accent-green/20 flex items-center justify-center shrink-0">
