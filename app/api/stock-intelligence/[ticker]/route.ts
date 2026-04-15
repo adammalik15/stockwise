@@ -251,58 +251,76 @@ export async function GET(
     fetchAnalystTargets(upper),
   ]);
 
-  if (candles.length < 15) {
-    return NextResponse.json({ error: `No price data found for ${upper}. Check the ticker and try again.` }, { status: 404 });
-  }
+  const candlesOk = candles.length >= 15;
 
   const quote   = quoteRes?.ok   ? await quoteRes.json()   : {};
   const profile = profileRes?.ok ? await profileRes.json() : {};
   const recs    = recRes?.ok     ? await recRes.json()     : [];
   const news    = newsRes?.ok    ? await newsRes.json()    : [];
 
-  const price   = quote?.c ?? candles[candles.length - 1].close;
-  const change  = quote?.d ?? 0;
-  const changePct = quote?.dp ?? 0;
-  const name    = profile?.name ?? upper;
-  const sector  = profile?.finnhubIndustry ?? 'Unknown';
-  const beta    = profile?.beta ?? 1.0;
+  // Price from Finnhub quote first, FMP candle as fallback
+  const price     = quote?.c && quote.c > 0 ? quote.c : (candlesOk ? candles[candles.length - 1].close : null);
+  const change    = quote?.d   ?? 0;
+  const changePct = quote?.dp  ?? 0;
+  const name      = profile?.name ?? upper;
+  const sector    = profile?.finnhubIndustry ?? 'Unknown';
+  const beta      = profile?.beta ?? 1.0;
 
-  // ── 2. Compute all indicators ────────────────────────────────────────────
-  const closes  = candles.map(c => c.close);
-  const highs   = candles.map(c => c.high);
-  const lows    = candles.map(c => c.low);
-  const volumes = candles.map(c => c.volume);
+  // No price at all — ticker genuinely doesn't exist
+  if (!price) {
+    return NextResponse.json(
+      { error: `Could not find data for "${upper}". Check the ticker and try again.` },
+      { status: 404 },
+    );
+  }
 
-  const rsi         = calcRSI(closes);
-  const macd        = calcMACD(closes);
-  const atr         = calcATR(candles);
-  const atrPct      = parseFloat(((atr / price) * 100).toFixed(2));
-  const volumeRatio = calcVolumeRatio(volumes);
-  const ema20       = parseFloat(emaLast(closes, 20).toFixed(2));
-  const ema50       = parseFloat(emaLast(closes, 50).toFixed(2));
-  const vwap        = parseFloat(candles[candles.length - 1].vwap.toFixed(2));
-  const obv         = calcOBVTrend(candles);
-  const stoch       = calcStochastic(candles);
-  const adx         = calcADX(candles);
-  const levels      = calcSupportResistance(candles, price);
+  // ── 2. Indicators (only when we have enough candle history) ─────────────
+  let indicators: any = null;
+  let levels: any     = null;
+  let avgMove         = 0;
 
-  // RSI signal label
-  const rsiSignal = rsi < 30 ? 'oversold' : rsi < 50 ? 'neutral' : rsi < 65 ? 'building' : rsi < 75 ? 'elevated' : 'overbought';
+  if (candlesOk) {
+    const closes  = candles.map(c => c.close);
+    const highs   = candles.map(c => c.high);
+    const lows    = candles.map(c => c.low);
+    const volumes = candles.map(c => c.volume);
 
-  // ADX strength
-  const adxStr = adx < 20 ? 'weak' : adx < 30 ? 'moderate' : adx < 50 ? 'strong' : 'very_strong';
+    const rsi         = calcRSI(closes);
+    const macd        = calcMACD(closes);
+    const atr         = calcATR(candles);
+    const atrPct      = parseFloat(((atr / price) * 100).toFixed(2));
+    const volumeRatio = calcVolumeRatio(volumes);
+    const ema20       = parseFloat(emaLast(closes, 20).toFixed(2));
+    const ema50       = parseFloat(emaLast(closes, 50).toFixed(2));
+    const vwap        = parseFloat(candles[candles.length - 1].vwap.toFixed(2));
+    const obv         = calcOBVTrend(candles);
+    const stoch       = calcStochastic(candles);
+    const adx         = calcADX(candles);
 
-  // Stochastic signal
-  const stochSig = stoch.k < 20 ? 'oversold' : stoch.k > 80 ? 'overbought' : 'neutral';
+    const rsiSignal = rsi < 30 ? 'oversold' : rsi < 50 ? 'neutral' : rsi < 65 ? 'building' : rsi < 75 ? 'elevated' : 'overbought';
+    const adxStr    = adx < 20 ? 'weak' : adx < 30 ? 'moderate' : adx < 50 ? 'strong' : 'very_strong';
+    const stochSig  = stoch.k < 20 ? 'oversold' : stoch.k > 80 ? 'overbought' : 'neutral';
+    const trend     = price > ema20 && price > ema50 ? 'bullish' : price < ema20 && price < ema50 ? 'bearish' : 'neutral';
 
-  // Trend
-  const trend = price > ema20 && price > ema50 ? 'bullish' :
-                price < ema20 && price < ema50 ? 'bearish' : 'neutral';
+    avgMove = parseFloat(
+      (candles.slice(-30).reduce((s, c) => s + Math.abs(c.changePercent), 0) / 30).toFixed(2),
+    );
 
-  // Avg daily move
-  const avgMove = parseFloat(
-    (candles.slice(-30).reduce((s, c) => s + Math.abs(c.changePercent), 0) / 30).toFixed(2)
-  );
+    indicators = {
+      rsi, rsi_signal: rsiSignal,
+      macd,
+      atr, atr_pct: atrPct,
+      volume_ratio: volumeRatio,
+      ema20, ema50,
+      vwap,
+      obv_trend: obv,
+      adx, adx_strength: adxStr,
+      stoch_k: stoch.k, stoch_d: stoch.d, stoch_signal: stochSig,
+      trend,
+    };
+
+    levels = calcSupportResistance(candles, price);
+  }
 
   // ── 3. Analyst data ──────────────────────────────────────────────────────
   const latestRec = Array.isArray(recs) ? recs[0] : null;
@@ -313,15 +331,14 @@ export async function GET(
 
   // ── 4. Halal screen ──────────────────────────────────────────────────────
   const stockDataForScreen = {
-    ticker: upper, name, price,
-    change, change_percent: changePct,
+    ticker: upper, name, price, change, change_percent: changePct,
     sector, beta,
     dividend_yield: profile?.dividendYield,
     market_cap: profile?.marketCapitalization ? profile.marketCapitalization * 1e6 : undefined,
   } as any;
   const halal = screenStock(stockDataForScreen);
 
-  // ── 5. User halal cert from Supabase ────────────────────────────────────
+  // ── 5. User halal cert ───────────────────────────────────────────────────
   const { data: certs } = await supabase
     .from('halal_certifications').select('*').eq('ticker', upper);
   const userCert = certs?.find((c: any) => c.certified_by === user.id) ?? null;
@@ -329,9 +346,12 @@ export async function GET(
   // ── 6. Claude narrative ──────────────────────────────────────────────────
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
   const headlines    = Array.isArray(news) ? news.slice(0, 5).map((n: any) => n.headline ?? '') : [];
+  const rsiForNarr   = indicators?.rsi ?? 50;
+  const volForNarr   = indicators?.volume_ratio ?? 1;
+  const macdForNarr  = indicators?.macd?.bullish ?? false;
   const narrative    = anthropicKey
     ? await generateNarrative(
-        upper, price, sector, rsi, volumeRatio, macd.bullish,
+        upper, price, sector, rsiForNarr, volForNarr, macdForNarr,
         beta, headlines, targetsData?.targetConsensus ?? null, anthropicKey,
       )
     : '';
@@ -351,6 +371,7 @@ export async function GET(
     change_percent: changePct,
     sector,
     price_tier: priceTier(price),
+    candles_available: candlesOk,
 
     halal: {
       screen: halal,
@@ -359,40 +380,39 @@ export async function GET(
     },
 
     targets: {
-      high:      targetsData?.targetHigh ?? null,
-      low:       targetsData?.targetLow  ?? null,
+      high:        targetsData?.targetHigh ?? null,
+      low:         targetsData?.targetLow  ?? null,
       consensus,
-      median:    targetsData?.targetMedian ?? null,
-      upside_pct: upsidePct,
+      median:      targetsData?.targetMedian ?? null,
+      upside_pct:  upsidePct,
       downside_pct: downsidePct,
-      buy:       buyCount,
-      hold:      holdCount,
-      sell:      sellCount,
-      total:     totalRecs,
+      buy:         buyCount,
+      hold:        holdCount,
+      sell:        sellCount,
+      total:       totalRecs,
     },
 
-    indicators: {
-      rsi, rsi_signal: rsiSignal,
-      macd,
-      atr, atr_pct: atrPct,
-      volume_ratio: volumeRatio,
-      ema20, ema50,
-      vwap,
-      obv_trend: obv,
-      adx, adx_strength: adxStr,
-      stoch_k: stoch.k, stoch_d: stoch.d, stoch_signal: stochSig,
-      trend,
-    },
-
-    levels,
+    indicators,  // null when candles unavailable
+    levels,      // null when candles unavailable
 
     behavior: {
-      beta:          parseFloat((beta ?? 1).toFixed(2)),
+      beta:           parseFloat((beta ?? 1).toFixed(2)),
       avg_daily_move: avgMove,
-      price_tier:    priceTier(price),
+      price_tier:     priceTier(price),
     },
 
     narrative,
+    // Initial chart data — avoids a second fetch on page load
+    chart_data: candlesOk
+      ? candles.slice(-70).map(c => ({
+          date:   c.date,
+          open:   c.open,
+          high:   c.high,
+          low:    c.low,
+          close:  c.close,
+          volume: c.volume,
+        }))
+      : [],
     generated_at: new Date().toISOString(),
   });
 }
