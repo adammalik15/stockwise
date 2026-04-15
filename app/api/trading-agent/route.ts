@@ -138,20 +138,23 @@ async function fetchCandles(ticker: string): Promise<{
   closes: number[]; highs: number[]; lows: number[];
   volumes: number[]; price: number;
 } | null> {
-  if (!FINNHUB_KEY) return null;
   try {
-    const now  = Math.floor(Date.now() / 1000);
-    const from = now - 100 * 86400; // 100 trading days
-    const res  = await fetch(
-      `${BASE}/stock/candle?symbol=${ticker}&resolution=D&from=${from}&to=${now}&token=${FINNHUB_KEY}`,
-      { signal: AbortSignal.timeout(8000) } // 8s per ticker max
+    const FMP_KEY = process.env.FMP_API_KEY;
+    if (!FMP_KEY) return null;
+    const res = await fetch(
+      `https://financialmodelingprep.com/stable/historical-price-eod/full?symbol=${ticker}&limit=90&apikey=${FMP_KEY}`,
+      { signal: AbortSignal.timeout(8000) }
     );
     if (!res.ok) return null;
-    const d = await res.json();
-    if (d.s !== 'ok' || !Array.isArray(d.c) || d.c.length < 30) return null;
+    const data = await res.json();
+    const rows: any[] = (data?.value ?? data ?? []).reverse(); // oldest → newest
+    if (rows.length < 30) return null;
     return {
-      closes: d.c, highs: d.h, lows: d.l,
-      volumes: d.v, price: d.c[d.c.length - 1],
+      closes:  rows.map((r: any) => r.close),
+      highs:   rows.map((r: any) => r.high),
+      lows:    rows.map((r: any) => r.low),
+      volumes: rows.map((r: any) => r.volume),
+      price:   rows[rows.length - 1].close,
     };
   } catch {
     return null;
@@ -297,14 +300,7 @@ export async function POST(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  if (!FINNHUB_KEY) {
-    return NextResponse.json({
-      signal: 'NO_TRADE',
-      reason: 'Finnhub API key not configured. Add FINNHUB_API_KEY to environment variables.',
-      scanned: 0, setups: [],
-    });
-  }
-
+  
   const body = await request.json().catch(() => ({}));
   const { price_ranges = ['small','medium','large','big'], capital = 10000 } = body;
 
