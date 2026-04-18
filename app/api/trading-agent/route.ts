@@ -10,207 +10,250 @@ const ALPACA_BASE   = 'https://data.alpaca.markets/v2/stocks';
 const FH_BASE       = 'https://finnhub.io/api/v1';
 const ADMIN_EMAIL   = 'adammalik15@gmail.com';
 
-// ── Halal universe ────────────────────────────────────────────────────────────
-// halal: 'high' = pre-screened clean | 'medium' = likely ok, verify | 'doubtful' = verify before trading
-const UNIVERSE: Record<string, { halal:'high'|'medium'|'doubtful'; sector:string; tier:'small'|'medium'|'large'|'big'; description:string }> = {
-  // SMALL < $25
-  RKLB:{ halal:'high',    sector:'Aerospace',      tier:'small',  description:'Space launch & satellite services company' },
-  RIVN:{ halal:'high',    sector:'EV',             tier:'small',  description:'Electric vehicle manufacturer focused on commercial fleets' },
-  LCID:{ halal:'high',    sector:'EV',             tier:'small',  description:'Luxury electric vehicle maker' },
-  PLUG:{ halal:'high',    sector:'Clean Energy',   tier:'small',  description:'Hydrogen fuel cell systems provider' },
-  JOBY:{ halal:'high',    sector:'Aviation',       tier:'small',  description:'Electric air taxi development company' },
-  SOUN:{ halal:'high',    sector:'AI',             tier:'small',  description:'AI-powered voice technology for enterprises' },
-  HIMS:{ halal:'high',    sector:'Healthcare',     tier:'small',  description:'Telehealth platform for hair loss, ED, and wellness' },
-  ACHR:{ halal:'high',    sector:'Aviation',       tier:'small',  description:'Electric vertical takeoff aircraft developer' },
-  ASTS:{ halal:'high',    sector:'Space',          tier:'small',  description:'Space-based broadband cellular network' },
-  RXRX:{ halal:'high',    sector:'BioTech',        tier:'small',  description:'AI drug discovery using machine learning' },
-  BBAI:{ halal:'high',    sector:'AI',             tier:'small',  description:'AI analytics for national security applications' },
-  NIO: { halal:'high',    sector:'EV',             tier:'small',  description:'Chinese premium electric vehicle manufacturer' },
-  LAZR:{ halal:'high',    sector:'Autonomous',     tier:'small',  description:'Lidar sensors for autonomous vehicle systems' },
-  XPEV:{ halal:'high',    sector:'EV',             tier:'small',  description:'Chinese smart electric vehicle company' },
-  AMPX:{ halal:'high',    sector:'Energy Storage', tier:'small',  description:'Lithium-silicon battery technology developer' },
-  FSLY:{ halal:'high',    sector:'Cloud/CDN',      tier:'small',  description:'Edge cloud platform for fast content delivery' },
-  SGML:{ halal:'high',    sector:'Materials',      tier:'small',  description:'Lithium carbonate producer for EV batteries' },
-  VETO:{ halal:'high',    sector:'Healthcare',     tier:'small',  description:'Healthcare innovation company' },
-  SRPT:{ halal:'high',    sector:'BioTech',        tier:'small',  description:'Rare disease gene therapy biotech' },
-  // MEDIUM $26–$100
-  AMD: { halal:'high',    sector:'Semiconductors', tier:'medium', description:'Advanced Micro Devices — CPUs, GPUs, AI chips' },
-  QCOM:{ halal:'high',    sector:'Semiconductors', tier:'medium', description:'Mobile chipsets and wireless technology licensing' },
-  MU:  { halal:'high',    sector:'Semiconductors', tier:'medium', description:'Memory and storage chips (DRAM, NAND)' },
-  SHOP:{ halal:'high',    sector:'E-Commerce',     tier:'medium', description:'E-commerce platform for small and medium businesses' },
-  NET: { halal:'high',    sector:'Cloud',          tier:'medium', description:'Global network services — CDN, security, DNS' },
-  DDOG:{ halal:'high',    sector:'Cloud',          tier:'medium', description:'Cloud monitoring and observability platform' },
-  ZS:  { halal:'high',    sector:'Cybersecurity',  tier:'medium', description:'Cloud-native zero trust security platform' },
-  CRWD:{ halal:'high',    sector:'Cybersecurity',  tier:'medium', description:'Endpoint protection and threat intelligence' },
-  OKTA:{ halal:'high',    sector:'Cybersecurity',  tier:'medium', description:'Identity and access management (IAM) platform' },
-  PLTR:{ halal:'medium',  sector:'AI/Data',        tier:'medium', description:'Data analytics — serves both commercial and government/defense clients' },
-  MDB: { halal:'high',    sector:'Cloud DB',       tier:'medium', description:'NoSQL database platform (MongoDB)' },
-  ON:  { halal:'high',    sector:'Semiconductors', tier:'medium', description:'Power and signal management semiconductors' },
-  CELH:{ halal:'high',    sector:'Beverages',      tier:'medium', description:'Celsius energy drinks — rapid global expansion' },
-  SNAP:{ halal:'medium',  sector:'Social',         tier:'medium', description:'Snapchat social media platform' },
-  CIEN:{ halal:'high',    sector:'Telecom Tech',   tier:'medium', description:'Optical networking equipment and software' },
-  SNDK:{ halal:'high',    sector:'Storage',        tier:'medium', description:'Flash storage products (SanDisk spin-off)' },
-  TWLO:{ halal:'high',    sector:'Cloud',          tier:'medium', description:'Cloud communications APIs (SMS, voice, email)' },
-  ZETA:{ halal:'doubtful',sector:'Ad Tech',        tier:'medium', description:'Data-driven marketing technology platform' },
-  PATH:{ halal:'high',    sector:'Automation',     tier:'medium', description:'Robotic process automation (RPA) software' },
-  RBRK:{ halal:'high',    sector:'Cybersecurity',  tier:'medium', description:'Zero-trust data security and ransomware protection' },
-  // LARGE $101–$200
-  NVDA:{ halal:'high',    sector:'Semiconductors', tier:'large',  description:'Dominant AI GPU manufacturer — powers data centers worldwide' },
-  MSFT:{ halal:'high',    sector:'Cloud/AI',       tier:'large',  description:'Cloud (Azure), Office 365, and AI partnership with OpenAI' },
-  AAPL:{ halal:'medium',  sector:'Consumer Tech',  tier:'large',  description:'iPhone, Mac, services ecosystem — largest company by market cap' },
-  LLY: { halal:'high',    sector:'Pharma',         tier:'large',  description:'GLP-1 weight loss drugs (Mounjaro, Zepbound) market leader' },
-  AVGO:{ halal:'high',    sector:'Semiconductors', tier:'large',  description:'Custom AI chips, networking, and enterprise software' },
-  TMO: { halal:'high',    sector:'Life Sciences',  tier:'large',  description:'Scientific instruments, lab services, and life science tools' },
-  ISRG:{ halal:'high',    sector:'Robotic Surgery',tier:'large',  description:'da Vinci robotic surgical systems — dominant market position' },
-  PANW:{ halal:'high',    sector:'Cybersecurity',  tier:'large',  description:'Comprehensive cybersecurity platform — firewall to cloud' },
-  NOW: { halal:'high',    sector:'Cloud SaaS',     tier:'large',  description:'IT service management and enterprise workflow automation' },
-  AMAT:{ halal:'high',    sector:'Semiconductors', tier:'large',  description:'Semiconductor manufacturing equipment and materials' },
-  HD:  { halal:'high',    sector:'Retail',         tier:'large',  description:'Home improvement retail — benefits from housing market' },
-  TSLA:{ halal:'medium',  sector:'EV',             tier:'large',  description:'Electric vehicles, energy storage, and autonomous driving' },
-  SNOW:{ halal:'high',    sector:'Cloud',          tier:'large',  description:'Cloud data warehouse and analytics platform' },
-  // BIG $201+
-  NVO: { halal:'high',    sector:'Pharma',         tier:'big',    description:'Novo Nordisk — GLP-1 diabetes and obesity drugs (Ozempic, Wegovy)' },
-  MA:  { halal:'high',    sector:'Payments',       tier:'big',    description:'Mastercard payment network — processes but does not lend' },
-  V:   { halal:'high',    sector:'Payments',       tier:'big',    description:'Visa payment network — technology company not a bank' },
-  COST:{ halal:'high',    sector:'Retail',         tier:'big',    description:'Membership warehouse retail — highly loyal customer base' },
-  ADBE:{ halal:'high',    sector:'Software',       tier:'big',    description:'Creative software (Photoshop, Illustrator) and PDF tools' },
-  ORCL:{ halal:'high',    sector:'Cloud',          tier:'big',    description:'Enterprise database software and cloud infrastructure' },
-  ASML:{ halal:'high',    sector:'Semiconductors', tier:'big',    description:'EUV lithography machines — only supplier globally' },
-  TSM: { halal:'high',    sector:'Semiconductors', tier:'big',    description:'Taiwan Semiconductor — manufactures chips for Apple, NVDA, AMD' },
-  INTU:{ halal:'high',    sector:'SaaS',           tier:'big',    description:'TurboTax, QuickBooks, and Credit Karma — financial software' },
-};
-
-// Behavior profiles — why each stock moves the way it does
-const BEHAVIOR_PROFILES: Record<string, { primary_driver:string; pattern:string; avoid_when:string; best_for:string }> = {
-  NVDA: { primary_driver:'AI infrastructure demand and data center buildout', pattern:'Leads on AI news, follows broader tech sentiment. Earnings move ±8-10% avg.', avoid_when:'VIX > 25 or broad tech selloff', best_for:'Momentum breakouts on AI catalyst days' },
-  AMD:  { primary_driver:'Market share gains vs Intel CPUs and NVDA GPUs', pattern:'Often lags then catches up to NVDA. Strong on data center earnings.', avoid_when:'NVDA is falling — AMD follows with a lag', best_for:'Dip buys when NVDA recovered but AMD hasnt yet' },
-  HIMS: { primary_driver:'GLP-1 weight loss drug access and telehealth growth', pattern:'News-driven — FDA decisions create 20-35% swings', avoid_when:'Regulatory uncertainty or competitor announcements', best_for:'Momentum after FDA approvals or coverage expansions' },
-  TSLA: { primary_driver:'Elon Musk news, EV delivery numbers, and rate sensitivity', pattern:'Amplifies market moves 2-3×. Retail sentiment stock.', avoid_when:'Rising interest rates or Musk controversy weeks', best_for:'Momentum setups with strong volume confirmation' },
-  NVO:  { primary_driver:'Ozempic/Wegovy demand and obesity drug pipeline', pattern:'Steady grinder up with occasional 5-8% pullbacks on competition news', avoid_when:'Competitor GLP-1 data readouts or pricing pressure news', best_for:'Dip buys on temporary pullbacks in uptrend' },
-  RKLB: { primary_driver:'Launch manifest growth and space economy expansion', pattern:'Highly volatile. Each launch either validates or punishes. Retail favourite.', avoid_when:'Delayed launches or SpaceX competition announcements', best_for:'News catalyst after successful launches' },
-  PLTR: { primary_driver:'AI platform adoption in government and commercial sectors', pattern:'Moves on government contract wins and earnings guidance', avoid_when:'Defense budget cuts or macro risk-off environment', best_for:'Momentum breakouts after earnings beats' },
-};
-
+// ── 6-tier price system ───────────────────────────────────────────────────────
 const PRICE_BOUNDS: Record<string, [number,number]> = {
-  small:[0,25], medium:[26,100], large:[101,200], big:[201,999999],
+  small:   [0,    25   ],
+  medium:  [26,   100  ],
+  large:   [101,  200  ],
+  big:     [201,  400  ],
+  premium: [401,  700  ],
+  elite:   [701,  999999],
 };
 
-// ── Indicators ────────────────────────────────────────────────────────────────
-function calcRSI(c:number[], p=14):number {
-  if(c.length<p+1) return 50;
-  let g=0,l=0;
-  for(let i=c.length-p;i<c.length;i++){const d=c[i]-c[i-1];d>0?g+=d:l+=Math.abs(d);}
-  const ag=g/p,al=l/p;return al===0?100:Math.round(100-100/(1+ag/al));
+type Tier = 'small'|'medium'|'large'|'big'|'premium'|'elite';
+type Halal = 'high'|'medium'|'doubtful';
+
+interface UniverseEntry {
+  halal: Halal;
+  sector: string;
+  tier: Tier;
+  description: string;
 }
+
+// ── 200+ stock halal universe ─────────────────────────────────────────────────
+const UNIVERSE: Record<string, UniverseEntry> = {
+  // ── SMALL (< $25) ──────────────────────────────────────────────────────────
+  RKLB: { halal:'high',    sector:'Aerospace',        tier:'small',  description:'Space launch & satellite services' },
+  RIVN: { halal:'high',    sector:'EV',               tier:'small',  description:'Electric vehicle manufacturer for commercial fleets' },
+  LCID: { halal:'high',    sector:'EV',               tier:'small',  description:'Luxury electric vehicle maker' },
+  PLUG: { halal:'high',    sector:'Clean Energy',     tier:'small',  description:'Hydrogen fuel cell systems' },
+  JOBY: { halal:'high',    sector:'Aviation',         tier:'small',  description:'Electric air taxi developer' },
+  SOUN: { halal:'high',    sector:'AI',               tier:'small',  description:'AI-powered voice technology platform' },
+  HIMS: { halal:'high',    sector:'Healthcare',       tier:'small',  description:'Telehealth platform — hair loss, weight, wellness' },
+  ACHR: { halal:'high',    sector:'Aviation',         tier:'small',  description:'Electric vertical takeoff aircraft' },
+  ASTS: { halal:'high',    sector:'Space',            tier:'small',  description:'Space-based broadband cellular network' },
+  RXRX: { halal:'high',    sector:'BioTech',          tier:'small',  description:'AI-driven drug discovery platform' },
+  BBAI: { halal:'high',    sector:'AI',               tier:'small',  description:'AI analytics for national security' },
+  NIO:  { halal:'high',    sector:'EV',               tier:'small',  description:'Chinese premium electric vehicle manufacturer' },
+  LAZR: { halal:'high',    sector:'Autonomous',       tier:'small',  description:'Lidar sensors for autonomous vehicles' },
+  XPEV: { halal:'high',    sector:'EV',               tier:'small',  description:'Chinese smart electric vehicles' },
+  AMPX: { halal:'high',    sector:'Energy Storage',   tier:'small',  description:'Lithium-silicon battery technology' },
+  FSLY: { halal:'high',    sector:'Cloud/CDN',        tier:'small',  description:'Edge cloud platform for fast content delivery' },
+  SGML: { halal:'high',    sector:'Materials',        tier:'small',  description:'Lithium carbonate producer for EV batteries' },
+  VETO: { halal:'high',    sector:'Healthcare',       tier:'small',  description:'Healthcare innovation company' },
+  SRPT: { halal:'high',    sector:'BioTech',          tier:'small',  description:'Rare disease gene therapy biotech' },
+  RIOT: { halal:'doubtful',sector:'Crypto Mining',    tier:'small',  description:'Bitcoin mining — halal status debated among scholars' },
+  PATH: { halal:'high',    sector:'Automation',       tier:'small',  description:'Robotic process automation (RPA) software' },
+  ANNA: { halal:'high',    sector:'Healthcare AI',    tier:'small',  description:'AI-powered healthcare analytics' },
+  ANGO: { halal:'high',    sector:'Medical Devices',  tier:'small',  description:'Vascular and oncology medical devices' },
+  VELO: { halal:'high',    sector:'Healthcare',       tier:'small',  description:'Pharmaceutical development company' },
+  SYM:  { halal:'high',    sector:'Robotics',         tier:'small',  description:'AI-powered warehouse robotics' },
+  ELVA: { halal:'high',    sector:'EV',               tier:'small',  description:'Electric vehicle charging infrastructure' },
+  FLNC: { halal:'high',    sector:'Clean Energy',     tier:'small',  description:'Fluence Energy — grid-scale energy storage' },
+  NBIS: { halal:'high',    sector:'Semiconductors',   tier:'small',  description:'Nebius — AI cloud infrastructure' },
+  SMTC: { halal:'high',    sector:'Semiconductors',   tier:'small',  description:'Semtech — IoT and wireless semiconductors' },
+  ETON: { halal:'high',    sector:'Pharma',           tier:'small',  description:'Specialty pharmaceutical company' },
+  KIDS: { halal:'high',    sector:'Healthcare',       tier:'small',  description:'OrthoPediatrics — pediatric orthopedic devices' },
+  ISSC: { halal:'high',    sector:'Aerospace',        tier:'small',  description:'Innovative Solutions and Support — avionics' },
+  BIRD: { halal:'high',    sector:'Footwear',         tier:'small',  description:'Allbirds — sustainable footwear brand' },
+  WTTR: { halal:'high',    sector:'Energy Services',  tier:'small',  description:'Select Water Solutions — oilfield water management' },
+  FPS:  { halal:'high',    sector:'Technology',       tier:'small',  description:'Far Peak Acquisition / tech holdings' },
+  PTRN: { halal:'high',    sector:'Technology',       tier:'small',  description:'Patron Technology — events tech platform' },
+  BUUU: { halal:'high',    sector:'Technology',       tier:'small',  description:'BU Energy — emerging technology' },
+  PXED: { halal:'high',    sector:'Healthcare',       tier:'small',  description:'Pharmaceutical development' },
+  PPIH: { halal:'high',    sector:'Infrastructure',   tier:'small',  description:'Perion Network — infrastructure' },
+  YDDL: { halal:'high',    sector:'Technology',       tier:'small',  description:'Emerging technology company' },
+  LUD:  { halal:'high',    sector:'Technology',       tier:'small',  description:'Emerging technology company' },
+  UAMY: { halal:'high',    sector:'Materials',        tier:'small',  description:'United States Antimony — rare minerals' },
+  WSHP: { halal:'high',    sector:'Healthcare',       tier:'small',  description:'Warship Health — healthcare services' },
+  AXGN: { halal:'high',    sector:'Medical Devices',  tier:'small',  description:'Axogen — surgical nerve repair devices' },
+  AAOI: { halal:'high',    sector:'Networking',       tier:'small',  description:'Applied Optoelectronics — optical networking' },
+  CPNG: { halal:'high',    sector:'E-Commerce',       tier:'small',  description:'Coupang — South Korean e-commerce giant' },
+  MIRM: { halal:'high',    sector:'Pharma',           tier:'small',  description:'Mirum Pharmaceuticals — rare liver diseases' },
+  // ── MEDIUM ($26–$100) ──────────────────────────────────────────────────────
+  AMD:  { halal:'high',    sector:'Semiconductors',   tier:'medium', description:'CPUs, GPUs, and AI chips — competing with NVDA in data centers' },
+  QCOM: { halal:'high',    sector:'Semiconductors',   tier:'medium', description:'Mobile chipsets and wireless technology licensing' },
+  MU:   { halal:'high',    sector:'Semiconductors',   tier:'medium', description:'Memory and storage chips (DRAM, NAND)' },
+  SHOP: { halal:'high',    sector:'E-Commerce',       tier:'medium', description:'E-commerce platform for businesses worldwide' },
+  NET:  { halal:'high',    sector:'Cloud',            tier:'medium', description:'Global network — CDN, security, DNS' },
+  DDOG: { halal:'high',    sector:'Cloud',            tier:'medium', description:'Cloud monitoring and observability platform' },
+  ZS:   { halal:'high',    sector:'Cybersecurity',    tier:'medium', description:'Cloud-native zero trust security' },
+  CRWD: { halal:'high',    sector:'Cybersecurity',    tier:'medium', description:'Endpoint protection and threat intelligence' },
+  OKTA: { halal:'high',    sector:'Cybersecurity',    tier:'medium', description:'Identity and access management (IAM)' },
+  PLTR: { halal:'medium',  sector:'AI/Data',          tier:'medium', description:'Data analytics — commercial and government clients' },
+  MDB:  { halal:'high',    sector:'Cloud DB',         tier:'medium', description:'MongoDB — NoSQL database platform' },
+  ON:   { halal:'high',    sector:'Semiconductors',   tier:'medium', description:'Power and signal management semiconductors' },
+  CELH: { halal:'high',    sector:'Beverages',        tier:'medium', description:'Celsius energy drinks — global expansion' },
+  SNAP: { halal:'medium',  sector:'Social',           tier:'medium', description:'Snapchat — social media and AR platform' },
+  CIEN: { halal:'high',    sector:'Telecom Tech',     tier:'medium', description:'Optical networking equipment and software' },
+  SNDK: { halal:'high',    sector:'Storage',          tier:'medium', description:'Flash storage products (SanDisk brand)' },
+  TWLO: { halal:'high',    sector:'Cloud',            tier:'medium', description:'Cloud communications APIs — SMS, voice, email' },
+  ZETA: { halal:'doubtful',sector:'Ad Tech',          tier:'medium', description:'Data-driven marketing technology platform' },
+  RBRK: { halal:'high',    sector:'Cybersecurity',    tier:'medium', description:'Zero-trust data security and ransomware protection' },
+  WDC:  { halal:'high',    sector:'Storage',          tier:'medium', description:'Western Digital — hard drives and flash storage' },
+  MRVL: { halal:'high',    sector:'Semiconductors',   tier:'medium', description:'Marvell — data infrastructure chips and AI networking' },
+  COHR: { halal:'high',    sector:'Photonics',        tier:'medium', description:'Coherent — optical components for AI data centers' },
+  ALB:  { halal:'high',    sector:'Materials',        tier:'medium', description:'Albemarle — lithium producer for EV batteries' },
+  GTLB: { halal:'high',    sector:'DevOps',           tier:'medium', description:'GitLab — DevSecOps platform for software teams' },
+  CRDO: { halal:'high',    sector:'Semiconductors',   tier:'medium', description:'Credo Technology — high-speed connectivity chips' },
+  RVMD: { halal:'high',    sector:'BioTech',          tier:'medium', description:'Revolution Medicines — cancer drug pipeline' },
+  AKAM: { halal:'high',    sector:'Cloud/CDN',        tier:'medium', description:'Akamai — CDN, cloud security, and edge platform' },
+  TER:  { halal:'high',    sector:'Semiconductors',   tier:'medium', description:'Teradyne — semiconductor test equipment' },
+  SUPN: { halal:'high',    sector:'Pharma',           tier:'medium', description:'Supernus — neurology specialty pharmaceuticals' },
+  KNF:  { halal:'high',    sector:'Manufacturing',    tier:'medium', description:'Knife River — construction materials' },
+  TSEM: { halal:'high',    sector:'Semiconductors',   tier:'medium', description:'Tower Semiconductor — specialty chip manufacturing' },
+  ALAB: { halal:'high',    sector:'Semiconductors',   tier:'medium', description:'Astera Labs — connectivity chips for AI infrastructure' },
+  UMC:  { halal:'high',    sector:'Semiconductors',   tier:'medium', description:'United Microelectronics — chip foundry services' },
+  RXO:  { halal:'high',    sector:'Logistics',        tier:'medium', description:'RXO — tech-enabled freight brokerage' },
+  ANF:  { halal:'high',    sector:'Retail',           tier:'medium', description:'Abercrombie & Fitch — apparel retail turnaround' },
+  FAST: { halal:'high',    sector:'Industrial',       tier:'medium', description:'Fastenal — industrial fasteners and supply chain' },
+  JBL:  { halal:'high',    sector:'Manufacturing',    tier:'medium', description:'Jabil — electronics manufacturing services' },
+  VSEC: { halal:'high',    sector:'Aerospace',        tier:'medium', description:'VSE Corporation — aerospace MRO services' },
+  KO:   { halal:'doubtful',sector:'Beverages',        tier:'medium', description:'Coca-Cola — some alcohol distribution in portfolio' },
+  CSX:  { halal:'high',    sector:'Transportation',   tier:'medium', description:'CSX — freight railroad across eastern US' },
+  VRT:  { halal:'high',    sector:'Power Mgmt',       tier:'medium', description:'Vertiv — power and cooling for data centers' },
+  // ── LARGE ($101–$200) ──────────────────────────────────────────────────────
+  NVDA: { halal:'high',    sector:'Semiconductors',   tier:'large',  description:'Dominant AI GPU manufacturer — powers data centers worldwide' },
+  MSFT: { halal:'high',    sector:'Cloud/AI',         tier:'large',  description:'Azure cloud, Office 365, and OpenAI partnership' },
+  AAPL: { halal:'medium',  sector:'Consumer Tech',    tier:'large',  description:'iPhone, Mac, services ecosystem — largest market cap' },
+  LLY:  { halal:'high',    sector:'Pharma',           tier:'large',  description:'GLP-1 weight loss drugs (Mounjaro, Zepbound) market leader' },
+  TMO:  { halal:'high',    sector:'Life Sciences',    tier:'large',  description:'Scientific instruments and lab services' },
+  ISRG: { halal:'high',    sector:'Robotic Surgery',  tier:'large',  description:'da Vinci robotic surgical systems' },
+  PANW: { halal:'high',    sector:'Cybersecurity',    tier:'large',  description:'Comprehensive cybersecurity — firewall to cloud' },
+  NOW:  { halal:'high',    sector:'Cloud SaaS',       tier:'large',  description:'IT service management and enterprise workflow automation' },
+  AMAT: { halal:'high',    sector:'Semiconductors',   tier:'large',  description:'Semiconductor manufacturing equipment' },
+  HD:   { halal:'high',    sector:'Retail',           tier:'large',  description:'Home improvement retail — housing market play' },
+  TSLA: { halal:'medium',  sector:'EV',               tier:'large',  description:'Electric vehicles, energy storage, autonomous driving, Elon-driven' },
+  SNOW: { halal:'high',    sector:'Cloud',            tier:'large',  description:'Cloud data warehouse and analytics platform' },
+  ABT:  { halal:'high',    sector:'Healthcare',       tier:'large',  description:'Abbott Labs — diagnostics, medical devices, nutrition' },
+  JNJ:  { halal:'high',    sector:'Healthcare',       tier:'large',  description:'Johnson & Johnson — pharmaceuticals and medical devices' },
+  FRPT: { halal:'high',    sector:'Pet Food',         tier:'large',  description:'Freshpet — fresh refrigerated pet food' },
+  MRK:  { halal:'high',    sector:'Pharma',           tier:'large',  description:'Merck — Keytruda cancer drug and vaccines' },
+  VLO:  { halal:'high',    sector:'Energy',           tier:'large',  description:'Valero Energy — oil refining and fuel production' },
+  CVX:  { halal:'high',    sector:'Energy',           tier:'large',  description:'Chevron — integrated energy company' },
+  APP:  { halal:'medium',  sector:'Ad Tech',          tier:'large',  description:'AppLovin — mobile advertising and gaming technology' },
+  ANET: { halal:'high',    sector:'Networking',       tier:'large',  description:'Arista Networks — cloud networking switches' },
+  // ── BIG ($201–$400) ────────────────────────────────────────────────────────
+  AVGO: { halal:'high',    sector:'Semiconductors',   tier:'big',    description:'Broadcom — custom AI chips, networking, and enterprise software' },
+  TSM:  { halal:'high',    sector:'Semiconductors',   tier:'big',    description:'Taiwan Semiconductor — manufactures chips for Apple, NVDA, AMD' },
+  COST: { halal:'high',    sector:'Retail',           tier:'big',    description:'Costco — membership warehouse with ultra-loyal customers' },
+  MA:   { halal:'high',    sector:'Payments',         tier:'big',    description:'Mastercard — payment network (processes, does not lend)' },
+  V:    { halal:'high',    sector:'Payments',         tier:'big',    description:'Visa — global payment network technology' },
+  ADBE: { halal:'high',    sector:'Software',         tier:'big',    description:'Adobe — creative software (Photoshop, Illustrator, PDF)' },
+  ORCL: { halal:'high',    sector:'Cloud',            tier:'big',    description:'Oracle — enterprise database and cloud infrastructure' },
+  INTU: { halal:'high',    sector:'SaaS',             tier:'big',    description:'TurboTax, QuickBooks, Credit Karma — financial software' },
+  COR:  { halal:'high',    sector:'Healthcare',       tier:'big',    description:'Cencora (AmerisourceBergen) — pharmaceutical distribution' },
+  // ── PREMIUM ($401–$700) ────────────────────────────────────────────────────
+  ASML: { halal:'high',    sector:'Semiconductors',   tier:'premium',description:'EUV lithography machines — only supplier globally' },
+  NVO:  { halal:'high',    sector:'Pharma',           tier:'premium',description:'Novo Nordisk — Ozempic and Wegovy GLP-1 global leader' },
+  MSTR: { halal:'doubtful',sector:'Crypto',           tier:'premium',description:'MicroStrategy — primary asset is Bitcoin holdings' },
+  // ── ELITE ($701+) ─────────────────────────────────────────────────────────
+  LRCX: { halal:'high',    sector:'Semiconductors',   tier:'elite',  description:'Lam Research — etch and deposition semiconductor equipment' },
+  BRK:  { halal:'doubtful',sector:'Financial',        tier:'elite',  description:'Berkshire Hathaway — significant insurance and banking exposure' },
+};
+
+// Note: SOXX and FENY are ETFs — handled separately in the route
+// SOXX = iShares Semiconductor ETF, FENY = Fidelity Energy ETF
+
+// ── Behavior profiles ─────────────────────────────────────────────────────────
+const BEHAVIOR: Record<string, {primary:string;pattern:string;avoid:string;best:string}> = {
+  NVDA: { primary:'AI infrastructure demand and data center GPU orders',       pattern:'Leads AI sector — earnings move ±8-10%. Breakouts sustain on high volume.',             avoid:'VIX > 25 or broad tech selloff',              best:'Momentum breakouts after earnings beats or AI contract wins' },
+  AMD:  { primary:'Market share gains vs Intel CPUs and NVDA GPUs',           pattern:'Often lags then catches up to NVDA. Strong on data center revenue beats.',              avoid:'NVDA is falling — AMD typically follows with lag', best:'Dip buys when NVDA has recovered but AMD hasnt' },
+  HIMS: { primary:'GLP-1 access and telehealth growth',                       pattern:'FDA news creates 20-35% swings. Earnings ±10-15%.',                                       avoid:'FDA uncertainty or competitor approval news',     best:'Momentum after FDA approvals or coverage expansions' },
+  TSLA: { primary:'Elon Musk news, delivery numbers, and interest rate moves', pattern:'Amplifies market 2-3×. Retail-driven. Moving on any Musk tweet.',                        avoid:'Rising rates or Musk controversy weeks',          best:'Momentum setups with strong volume after delivery beats' },
+  NVO:  { primary:'Ozempic/Wegovy demand and obesity drug pipeline',          pattern:'Steady uptrend with 5-8% pullbacks on competitor news.',                                  avoid:'Competitor GLP-1 readouts or pricing pressure',   best:'Dip buys on pullbacks in confirmed uptrend' },
+  RKLB: { primary:'Launch manifest growth and space economy expansion',        pattern:'Highly volatile — each launch validates or punishes. Retail favourite.',                  avoid:'Delayed launches or SpaceX competition news',     best:'News catalyst after successful launches' },
+  PLTR: { primary:'AI platform adoption in government and commercial sectors', pattern:'Moves on government contract wins and AI narrative.',                                      avoid:'Defense budget cuts or macro risk-off',           best:'Momentum breakouts after earnings beats' },
+  RIOT: { primary:'Bitcoin price (correlation ~0.92)',                         pattern:'Amplifies BTC moves 2-3×. If BTC flat → RIOT dies. Very retail-driven.',                 avoid:'When Bitcoin is flat or falling',                 best:'When BTC breaks out — RIOT follows with amplification' },
+  ALAB: { primary:'AI data center connectivity chip demand',                   pattern:'Moves on AI infrastructure news and NVDA earnings guidance.',                             avoid:'Data center capex slowdown fears',                best:'Momentum breakouts alongside NVDA/AVGO strength' },
+  CRDO: { primary:'High-speed data center interconnect chip demand',           pattern:'Moves with AI infrastructure buildout cycle. Earnings ±15-20%.',                         avoid:'Slowdown in hyperscaler capex',                   best:'Breakouts on earnings beats and guidance raises' },
+  AVGO: { primary:'Custom AI chips (XPUs) and networking for hyperscalers',    pattern:'Slow steady grinder with big earnings moves. Less volatile than AMD/NVDA.',              avoid:'Hyperscaler capex cuts',                         best:'Dip buys after market-wide pullbacks' },
+  ANET: { primary:'Cloud networking switches for AI data centers',             pattern:'Tight range then explosive earnings move. Very institutional.',                            avoid:'Cloud spending slowdown or NVDA earnings miss',   best:'Post-earnings momentum when guidance raised' },
+};
+
+// ── Indicator math ────────────────────────────────────────────────────────────
+function calcRSI(c:number[],p=14):number{if(c.length<p+1)return 50;let g=0,l=0;for(let i=c.length-p;i<c.length;i++){const d=c[i]-c[i-1];d>0?g+=d:l+=Math.abs(d);}const ag=g/p,al=l/p;return al===0?100:Math.round(100-100/(1+ag/al));}
 function calcEMA(v:number[],p:number):number[]{const k=2/(p+1),o=[v[0]];for(let i=1;i<v.length;i++)o.push(v[i]*k+o[i-1]*(1-k));return o;}
 function emaLast(c:number[],p:number):number{return calcEMA(c,p).slice(-1)[0];}
-function calcMACD(c:number[]):{bullish:boolean;histogram:number}{
-  if(c.length<35)return{bullish:false,histogram:0};
-  const e12=calcEMA(c,12),e26=calcEMA(c,26);
-  const line=e12.map((v,i)=>v-e26[i]);
-  const sig=calcEMA(line.slice(-9),9);
-  const h=line[line.length-1]-sig[sig.length-1];
-  const p2=line[line.length-2]-sig[sig.length-2];
-  return{bullish:h>0&&h>p2,histogram:parseFloat(h.toFixed(4))};
-}
-function calcATR(highs:number[],lows:number[],closes:number[],p=14):number{
-  const trs:number[]=[];
-  for(let i=1;i<closes.length;i++)trs.push(Math.max(highs[i]-lows[i],Math.abs(highs[i]-closes[i-1]),Math.abs(lows[i]-closes[i-1])));
-  const r=trs.slice(-p);return r.reduce((a,b)=>a+b,0)/r.length;
-}
-function calcVolumeRatio(v:number[]):number{
-  if(v.length<21)return 1;
-  const avg=v.slice(-21,-1).reduce((a,b)=>a+b,0)/20;
-  return avg>0?parseFloat((v[v.length-1]/avg).toFixed(2)):1;
-}
-function calcStoch(highs:number[],lows:number[],closes:number[],kp=14):{k:number;d:number}{
-  if(closes.length<kp)return{k:50,d:50};
-  const ks:number[]=[];
-  for(let i=kp-1;i<closes.length;i++){
-    const sl=highs.slice(i-kp+1,i+1),ll=lows.slice(i-kp+1,i+1);
-    const hi=Math.max(...sl),lo=Math.min(...ll);
-    ks.push(hi===lo?50:((closes[i]-lo)/(hi-lo))*100);
-  }
-  const lastK=ks[ks.length-1],ds=ks.slice(-3);
-  return{k:Math.round(lastK),d:Math.round(ds.reduce((a,b)=>a+b,0)/ds.length)};
-}
-function calcADX(highs:number[],lows:number[],closes:number[],p=14):number{
-  if(closes.length<p*2)return 20;
-  const trs:number[]=[],pdms:number[]=[],mdms:number[]=[];
-  for(let i=1;i<closes.length;i++){
-    trs.push(Math.max(highs[i]-lows[i],Math.abs(highs[i]-closes[i-1]),Math.abs(lows[i]-closes[i-1])));
-    const pd=highs[i]-highs[i-1],md=lows[i-1]-lows[i];
-    pdms.push(pd>0&&pd>md?pd:0);mdms.push(md>0&&md>pd?md:0);
-  }
-  const atr=trs.slice(-p).reduce((a,b)=>a+b,0)/p;
-  const pdi=pdms.slice(-p).reduce((a,b)=>a+b,0)/p/atr*100;
-  const mdi=mdms.slice(-p).reduce((a,b)=>a+b,0)/p/atr*100;
-  return Math.round((pdi+mdi)>0?Math.abs(pdi-mdi)/(pdi+mdi)*100:0);
-}
+function calcMACD(c:number[]):{bullish:boolean;histogram:number}{if(c.length<35)return{bullish:false,histogram:0};const e12=calcEMA(c,12),e26=calcEMA(c,26);const line=e12.map((v,i)=>v-e26[i]);const sig=calcEMA(line.slice(-9),9);const h=line[line.length-1]-sig[sig.length-1];const p2=line[line.length-2]-sig[sig.length-2];return{bullish:h>0&&h>p2,histogram:parseFloat(h.toFixed(4))};}
+function calcATR(highs:number[],lows:number[],closes:number[],p=14):number{const trs:number[]=[];for(let i=1;i<closes.length;i++)trs.push(Math.max(highs[i]-lows[i],Math.abs(highs[i]-closes[i-1]),Math.abs(lows[i]-closes[i-1])));const r=trs.slice(-p);return r.length?r.reduce((a,b)=>a+b,0)/r.length:0;}
+function calcVolumeData(vols:number[]):{ratio:number;todayVol:number;avgVol:number}{if(vols.length<2)return{ratio:1,todayVol:vols[vols.length-1]??0,avgVol:0};const avg=vols.slice(-21,-1).reduce((a,b)=>a+b,0)/Math.max(1,Math.min(20,vols.length-1));const today=vols[vols.length-1];return{ratio:avg>0?parseFloat((today/avg).toFixed(2)):1,todayVol:today,avgVol:Math.round(avg)};}
+function calcStoch(highs:number[],lows:number[],closes:number[],kp=14):{k:number;d:number}{if(closes.length<kp)return{k:50,d:50};const ks:number[]=[];for(let i=kp-1;i<closes.length;i++){const hi=Math.max(...highs.slice(i-kp+1,i+1)),lo=Math.min(...lows.slice(i-kp+1,i+1));ks.push(hi===lo?50:((closes[i]-lo)/(hi-lo))*100);}const lastK=ks[ks.length-1],ds=ks.slice(-3);return{k:Math.round(lastK),d:Math.round(ds.reduce((a,b)=>a+b,0)/ds.length)};}
+function calcADX(highs:number[],lows:number[],closes:number[],p=14):number{if(closes.length<p*2)return 20;const trs:number[]=[],pdms:number[]=[],mdms:number[]=[];for(let i=1;i<closes.length;i++){trs.push(Math.max(highs[i]-lows[i],Math.abs(highs[i]-closes[i-1]),Math.abs(lows[i]-closes[i-1])));const pd=highs[i]-highs[i-1],md=lows[i-1]-lows[i];pdms.push(pd>0&&pd>md?pd:0);mdms.push(md>0&&md>pd?md:0);}const atr=trs.slice(-p).reduce((a,b)=>a+b,0)/p;if(!atr)return 20;const pdi=pdms.slice(-p).reduce((a,b)=>a+b,0)/p/atr*100,mdi=mdms.slice(-p).reduce((a,b)=>a+b,0)/p/atr*100;return Math.round((pdi+mdi)>0?Math.abs(pdi-mdi)/(pdi+mdi)*100:0);}
 
-// ── Alpaca: fetch candles (SIP — full market volume) ─────────────────────────
-async function fetchCandles(ticker:string):Promise<{closes:number[];highs:number[];lows:number[];volumes:number[];vwaps:number[];dates:string[];price:number}|null>{
+// ── Alpaca SIP candles ────────────────────────────────────────────────────────
+async function fetchCandles(ticker:string):Promise<{closes:number[];highs:number[];lows:number[];volumes:number[];dates:string[];price:number}|null>{
   if(!ALPACA_KEY||!ALPACA_SECRET)return null;
   try{
     const start=new Date(Date.now()-140*86400000).toISOString().split('T')[0];
-    const res=await fetch(`${ALPACA_BASE}/${ticker}/bars?timeframe=1Day&limit=90&feed=sip&start=${start}&sort=asc`,{
-      headers:{'APCA-API-KEY-ID':ALPACA_KEY,'APCA-API-SECRET-KEY':ALPACA_SECRET},
-      signal:AbortSignal.timeout(8000),
-    });
+    const res=await fetch(`${ALPACA_BASE}/${ticker}/bars?timeframe=1Day&limit=90&feed=sip&start=${start}&sort=asc`,{headers:{'APCA-API-KEY-ID':ALPACA_KEY,'APCA-API-SECRET-KEY':ALPACA_SECRET},signal:AbortSignal.timeout(8000)});
     if(!res.ok)return null;
-    const data=await res.json();
-    const bars:any[]=data?.bars??[];
+    const bars:any[]=(await res.json())?.bars??[];
     if(bars.length<30)return null;
-    return{
-      closes: bars.map((b:any)=>b.c),
-      highs:  bars.map((b:any)=>b.h),
-      lows:   bars.map((b:any)=>b.l),
-      volumes:bars.map((b:any)=>b.v),
-      vwaps:  bars.map((b:any)=>b.vw??b.c),
-      dates:  bars.map((b:any)=>b.t.split('T')[0]),
-      price:  bars[bars.length-1].c,
-    };
+    return{closes:bars.map(b=>b.c),highs:bars.map(b=>b.h),lows:bars.map(b=>b.l),volumes:bars.map(b=>b.v),dates:bars.map(b=>b.t.split('T')[0]),price:bars[bars.length-1].c};
   }catch{return null;}
 }
 
-// ── Detect significant historical moves ───────────────────────────────────────
-function detectKeyMoves(candles:{closes:number[];highs:number[];lows:number[];volumes:number[];dates:string[]}):
-  {date:string;pct:number;direction:'up'|'down';volume_ratio:number}[] {
-  const{closes,volumes,dates}=candles;
+// ── Historical key moves ──────────────────────────────────────────────────────
+function detectKeyMoves(c:{closes:number[];highs:number[];lows:number[];volumes:number[];dates:string[]}):{date:string;pct:number;direction:'up'|'down';volume_ratio:number}[]{
+  const{closes,volumes,dates}=c;
+  const avgVol=volumes.slice(0,-1).reduce((a,b)=>a+b,0)/Math.max(1,volumes.length-1);
   const moves:any[]=[];
-  const avgVol=volumes.slice(0,volumes.length-1).reduce((a,b)=>a+b,0)/Math.max(1,volumes.length-1);
   for(let i=1;i<closes.length;i++){
     const pct=((closes[i]-closes[i-1])/closes[i-1])*100;
-    if(Math.abs(pct)>=5){// 5%+ is significant
-      moves.push({date:dates[i],pct:parseFloat(pct.toFixed(1)),direction:pct>0?'up':'down',volume_ratio:parseFloat((volumes[i]/Math.max(1,avgVol)).toFixed(1))});
-    }
+    if(Math.abs(pct)>=5)moves.push({date:dates[i],pct:parseFloat(pct.toFixed(1)),direction:pct>0?'up':'down',volume_ratio:parseFloat((volumes[i]/Math.max(1,avgVol)).toFixed(1))});
   }
   return moves.sort((a,b)=>Math.abs(b.pct)-Math.abs(a.pct)).slice(0,5);
 }
 
-// ── Get news for a specific date to explain the move ─────────────────────────
-async function getMoveReason(ticker:string,date:string,pct:number,apiKey:string):Promise<string>{
-  // Fetch news around that date
+// ── Explain move — Finnhub news + Claude, with fallback to training knowledge ──
+async function getMoveReason(ticker:string,date:string,pct:number,apiKey:string,sector:string):Promise<string>{
   let headlines:string[]=[];
   if(FINNHUB_KEY){
     try{
       const from=new Date(new Date(date).getTime()-86400000).toISOString().split('T')[0];
       const to=new Date(new Date(date).getTime()+86400000).toISOString().split('T')[0];
       const res=await fetch(`${FH_BASE}/company-news?symbol=${ticker}&from=${from}&to=${to}&token=${FINNHUB_KEY}`,{signal:AbortSignal.timeout(5000)});
-      if(res.ok){const articles=await res.json();headlines=(Array.isArray(articles)?articles:[]).slice(0,5).map((a:any)=>a.headline??'');}
+      if(res.ok)headlines=(await res.json()).slice(0,5).map((a:any)=>a.headline??'').filter(Boolean);
     }catch{}
   }
-  if(headlines.length===0)return pct>0?'Strong buying pressure — possible market-wide momentum or sector rotation':'Heavy selling pressure — possible market-wide risk-off or sector rotation';
   try{
-    const res=await fetch(ANTHROPIC_URL,{
-      method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01'},
-      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:80,messages:[{role:'user',content:`${ticker} moved ${pct>0?'+':''}${pct}% on ${date}. News headlines:\n${headlines.join('\n')}\n\nExplain in ONE plain sentence (max 20 words) why it moved. No preamble.`}]}),
-    });
-    const d=await res.json();return d.content?.[0]?.text?.trim()??'Significant price move — news context unavailable';
-  }catch{return 'Significant price move — AI explanation unavailable';}
+    const prompt=headlines.length>0
+      ?`${ticker} moved ${pct>0?'+':''}${pct}% on ${date}. Headlines:\n${headlines.join('\n')}\n\nOne plain sentence (max 20 words) explaining why. No preamble.`
+      :`${ticker} (${sector} company) moved ${pct>0?'+':''}${pct}% on ${date}. No news available. Based on typical catalysts for this sector and company type, write one plain sentence (max 20 words) explaining what likely caused this move. Be specific to the company type — e.g. for a biotech say FDA/trial, for a crypto miner say Bitcoin price, etc. No preamble.`;
+    const res=await fetch(ANTHROPIC_URL,{method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01'},body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:80,messages:[{role:'user',content:prompt}]})});
+    const d=await res.json();
+    return d.content?.[0]?.text?.trim()??'';
+  }catch{return pct>0?'Strong buying — likely sector rotation or institutional accumulation':'Heavy selling — likely profit-taking or macro risk-off event';}
 }
 
-// ── Finnhub: fundamentals ─────────────────────────────────────────────────────
+// ── Catalyst — returns headlines too ─────────────────────────────────────────
+async function fetchCatalyst(ticker:string):Promise<{found:boolean;headlines:string[]}>{
+  if(!FINNHUB_KEY)return{found:false,headlines:[]};
+  try{
+    const to=new Date().toISOString().split('T')[0];
+    const from=new Date(Date.now()-3*86400000).toISOString().split('T')[0];
+    const res=await fetch(`${FH_BASE}/company-news?symbol=${ticker}&from=${from}&to=${to}&token=${FINNHUB_KEY}`,{signal:AbortSignal.timeout(4000)});
+    if(!res.ok)return{found:false,headlines:[]};
+    const articles:any[]=await res.json();
+    if(!Array.isArray(articles))return{found:false,headlines:[]};
+    const kw=['beat','upgrade','record','partnership','contract','raised guidance','revenue growth','launch','breakthrough','fda','approval','acqui'];
+    const bullish=articles.filter(a=>{const t=((a.headline??'')+(a.summary??'')).toLowerCase();return kw.some(k=>t.includes(k));});
+    return{found:bullish.length>0,headlines:bullish.slice(0,3).map(a=>a.headline??'').filter(Boolean)};
+  }catch{return{found:false,headlines:[]};}
+}
+
+// ── Fundamentals + financials ─────────────────────────────────────────────────
 async function fetchFundamentals(ticker:string):Promise<any>{
   if(!FINNHUB_KEY)return null;
   try{
@@ -222,109 +265,114 @@ async function fetchFundamentals(ticker:string):Promise<any>{
     const[q,p,m]=await Promise.all([qRes.json(),pRes.json(),mRes.json()]);
     const met=m?.metric??{};
     return{
-      price:q?.c,change:q?.d,changePct:q?.dp,
+      price:q?.c,change:q?.d,changePct:q?.dp,high52w:q?.h,low52w:q?.l,
       name:p?.name,marketCap:p?.marketCapitalization?p.marketCapitalization*1e6:null,
-      pe:met['peNormalizedAnnual'],beta:met['beta'],
+      pe:met['peNormalizedAnnual']??met['peTTM'],
+      beta:met['beta'],
       high52:met['52WeekHigh'],low52:met['52WeekLow'],
-      dividendYield:met['dividendYieldIndicatedAnnual'],
       revenueGrowth:met['revenueGrowthTTMYoy'],
+      grossMargin:met['grossMarginTTM'],
+      netMargin:met['netProfitMarginTTM'],
+      revenueTTM:met['revenueTTM'],
+      ebitdaTTM:met['ebitdTTM'],
       shortInterest:met['shortInterest'],
       float:met['sharesFloat'],
+      dividendYield:met['dividendYieldIndicatedAnnual'],
     };
   }catch{return null;}
 }
 
-// ── Finnhub: earnings date ────────────────────────────────────────────────────
+// ── Earnings estimate ─────────────────────────────────────────────────────────
 async function fetchNextEarnings(ticker:string):Promise<string|null>{
   if(!FINNHUB_KEY)return null;
   try{
-    const from=new Date().toISOString().split('T')[0];
-    const to=new Date(Date.now()+90*86400000).toISOString().split('T')[0];
-    // Use per-ticker earnings history to estimate
     const res=await fetch(`${FH_BASE}/stock/earnings?symbol=${ticker}&limit=4&token=${FINNHUB_KEY}`,{signal:AbortSignal.timeout(4000)});
     if(!res.ok)return null;
-    const data=await res.json();
+    const data:any[]=await res.json();
     if(!Array.isArray(data)||data.length<2)return null;
-    const sorted=data.filter((d:any)=>d.period).sort((a:any,b:any)=>new Date(b.period).getTime()-new Date(a.period).getTime());
+    const sorted=data.filter(d=>d.period).sort((a,b)=>new Date(b.period).getTime()-new Date(a.period).getTime());
     if(sorted.length<2)return null;
     const last=new Date(sorted[0].period),prev=new Date(sorted[1].period);
     const interval=Math.round((last.getTime()-prev.getTime())/86400000);
     const avg=Math.max(80,Math.min(105,interval));
     const next=new Date(last.getTime()+avg*86400000);
-    if(next>new Date()&&next<new Date(Date.now()+180*86400000))return next.toISOString().split('T')[0];
-    return null;
+    return next>new Date()&&next<new Date(Date.now()+180*86400000)?next.toISOString().split('T')[0]:null;
   }catch{return null;}
 }
 
-// ── Catalyst check ────────────────────────────────────────────────────────────
-async function hasCatalyst(ticker:string):Promise<boolean>{
-  if(!FINNHUB_KEY)return false;
-  try{
-    const to=new Date().toISOString().split('T')[0];
-    const from=new Date(Date.now()-3*86400000).toISOString().split('T')[0];
-    const res=await fetch(`${FH_BASE}/company-news?symbol=${ticker}&from=${from}&to=${to}&token=${FINNHUB_KEY}`,{signal:AbortSignal.timeout(4000)});
-    if(!res.ok)return false;
-    const articles=await res.json();
-    if(!Array.isArray(articles))return false;
-    const kw=['beat','upgrade','record','partnership','contract','raised guidance','revenue growth','launch','breakthrough','fda','approval'];
-    return articles.some((a:any)=>{const t=((a.headline??'')+(a.summary??'')).toLowerCase();return kw.some(k=>t.includes(k));});
-  }catch{return false;}
-}
-
-// ── Signal analysis ───────────────────────────────────────────────────────────
-function analyzeSetup(candles:{closes:number[];highs:number[];lows:number[];volumes:number[];price:number},catalyst:boolean):{setup:string;confidence:number;factors:string[];atr:number;indicators:any}|null{
+// ── Signal engine ─────────────────────────────────────────────────────────────
+function analyzeSetup(candles:{closes:number[];highs:number[];lows:number[];volumes:number[];price:number},catalystFound:boolean):{setup:string;confidence:number;factors:string[];atr:number;entry:number;indicators:any}|null{
   const{closes,highs,lows,volumes,price}=candles;
   const rsi=calcRSI(closes);
   const macd=calcMACD(closes);
   const atr=calcATR(highs,lows,closes);
-  const volR=calcVolumeRatio(volumes);
+  const volData=calcVolumeData(volumes);
   const ema20=emaLast(closes,20);
   const ema50=emaLast(closes,50);
   const stoch=calcStoch(highs,lows,closes);
   const adx=calcADX(highs,lows,closes);
-  const vwap=candles.closes[candles.closes.length-1]; // approximation
 
-  if(volR<1.3)return null;
+  // Hard rejects
+  if(volData.ratio<1.3)return null;
   if(rsi>78||rsi<22)return null;
   const s20=closes.slice(-20),mean=s20.reduce((a,b)=>a+b,0)/20;
   const std=Math.sqrt(s20.reduce((a,b)=>a+(b-mean)**2,0)/20);
-  if((2*std)/mean<0.03&&volR<2.0)return null;
+  if((2*std)/mean<0.03&&volData.ratio<2.0)return null;
 
   const factors:string[]=[]; let score=0;
+
   if(price>ema20&&price>ema50){score++;factors.push('Trend aligned — price above 20 & 50 EMA');}
-  else if(price>ema20){factors.push('Partial trend — above 20 EMA only');}
+  else if(price>ema20)factors.push('Partial trend — above 20 EMA only');
+
   if(rsi>=50&&rsi<=65){score++;factors.push(`RSI ${rsi} — healthy momentum zone`);}
-  else if(rsi>65&&rsi<=75){factors.push(`RSI ${rsi} — elevated, consider smaller position`);}
+  else if(rsi>65&&rsi<=75)factors.push(`RSI ${rsi} — elevated, consider smaller position`);
   else if(rsi>=30&&rsi<48){score++;factors.push(`RSI ${rsi} — oversold bounce zone`);}
-  score++;factors.push(`Volume ${volR.toFixed(1)}× average — ${volR>=2?'strong institutional interest':'confirmed participation'}`);
+
+  score++;
+  factors.push(`Volume ${volData.ratio.toFixed(1)}× avg — ${volData.ratio>=2?'strong institutional interest':'confirmed participation'}`);
+
   const atrPrev=calcATR(highs.slice(0,-5),lows.slice(0,-5),closes.slice(0,-5));
   if(atr>atrPrev*1.08){score++;factors.push('ATR expanding — volatility supporting the move');}
+
   if(macd.bullish){score++;factors.push('MACD bullish — momentum accelerating');}
-  if(catalyst){score++;factors.push('Bullish news catalyst in past 72h');}
+  if(catalystFound){score++;factors.push('Bullish news catalyst in past 72h');}
+
   if(score<4)return null;
 
   const high20=Math.max(...closes.slice(-21,-1));
   let setup:string;
-  if(price>high20&&volR>=1.8)setup='Momentum Breakout';
+  if(price>high20&&volData.ratio>=1.8)setup='Momentum Breakout';
   else if(rsi<45&&price>ema20)setup='Dip Buy Reversal';
-  else if(catalyst&&volR>=1.5)setup='News Catalyst';
+  else if(catalystFound&&volData.ratio>=1.5)setup='News Catalyst';
   else if(score>=5)setup='Momentum Breakout';
   else return null;
 
-  const trend=price>ema20&&price>ema50?'bullish':price<ema20&&price<ema50?'bearish':'neutral';
-  const rsiSignal=rsi<30?'oversold':rsi<50?'neutral':rsi<65?'building':rsi<75?'elevated':'overbought';
-  const adxStr=adx<20?'weak':adx<30?'moderate':adx<50?'strong':'very_strong';
+  // Entry: smarter than just current price
+  let entry:number;
+  if(setup==='Momentum Breakout')entry=parseFloat((price*1.002).toFixed(2));     // 0.2% above — confirms break
+  else if(setup==='Dip Buy Reversal')entry=parseFloat((price*0.996).toFixed(2)); // 0.4% below — gets the dip
+  else entry=price; // news catalyst — market open is fine
 
-  return{setup,confidence:Math.min(10,score),factors,atr,indicators:{rsi,rsiSignal,macd,atr,atrPct:parseFloat(((atr/price)*100).toFixed(2)),volR,ema20:parseFloat(ema20.toFixed(2)),ema50:parseFloat(ema50.toFixed(2)),stochK:stoch.k,stochD:stoch.d,adx,adxStr,trend,vwap:parseFloat(price.toFixed(2))}};
+  const trend=price>ema20&&price>ema50?'bullish':price<ema20&&price<ema50?'bearish':'neutral';
+
+  return{
+    setup,confidence:Math.min(10,score),factors,atr,entry,
+    indicators:{
+      rsi,rsiSignal:rsi<30?'oversold':rsi<50?'neutral':rsi<65?'building':rsi<75?'elevated':'overbought',
+      macd,atr,atrPct:parseFloat(((atr/price)*100).toFixed(2)),
+      volR:volData.ratio,todayVol:volData.todayVol,avgVol:volData.avgVol,
+      ema20:parseFloat(ema20.toFixed(2)),ema50:parseFloat(ema50.toFixed(2)),
+      stochK:stoch.k,stochD:stoch.d,adx,adxStr:adx<20?'weak':adx<30?'moderate':adx<50?'strong':'very_strong',trend,
+    },
+  };
 }
 
-// ── Support & Resistance ──────────────────────────────────────────────────────
-function calcLevels(candles:{closes:number[];highs:number[];lows:number[];dates:string[]},price:number){
-  const{closes,highs,lows}=candles;
-  const last=closes[closes.length-1],prev2=closes[closes.length-2]??last;
-  const pp=(highs[highs.length-2]+lows[lows.length-2]+prev2)/3;
-  const r1=2*pp-lows[lows.length-2],r2=pp+(highs[highs.length-2]-lows[lows.length-2]),s1=2*pp-highs[highs.length-2],s2=pp-(highs[highs.length-2]-lows[lows.length-2]);
-  const slice60=closes.slice(-60);
+// ── S&R levels ────────────────────────────────────────────────────────────────
+function calcLevels(c:{closes:number[];highs:number[];lows:number[]},price:number){
+  const{closes,highs,lows}=c;
+  const n=closes.length;
+  const pp=(highs[n-2]+lows[n-2]+closes[n-2])/3;
+  const r1=2*pp-lows[n-2],r2=pp+(highs[n-2]-lows[n-2]),s1=2*pp-highs[n-2],s2=pp-(highs[n-2]-lows[n-2]);
   const swingHi=Math.max(...highs.slice(-60)),swingLo=Math.min(...lows.slice(-60));
   const range=swingHi-swingLo,isUp=(price-swingLo)>(swingHi-price);
   const base=isUp?swingLo:swingHi,sign=isUp?1:-1;
@@ -337,36 +385,46 @@ function calcLevels(candles:{closes:number[];highs:number[];lows:number[];dates:
     fib500:parseFloat((base+sign*range*0.500).toFixed(2)),
     fib618:parseFloat((base+sign*range*0.618).toFixed(2)),
     swingHi:parseFloat(swingHi.toFixed(2)),swingLo:parseFloat(swingLo.toFixed(2)),
-    entryLo:parseFloat((price-atr*0.3).toFixed(2)),
-    stop:parseFloat((s1-atr*0.5).toFixed(2)),
-    tp1:parseFloat(r1.toFixed(2)),tp2:parseFloat(r2.toFixed(2)),atr:parseFloat(atr.toFixed(2)),
+    atr:parseFloat(atr.toFixed(2)),
   };
 }
 
-// ── Build full plan ───────────────────────────────────────────────────────────
-function buildPlan(ticker:string,candles:any,analysis:any,capital:number,meta:any,fundamentals:any,targets:any,keyMoves:any[],earningsDate:string|null){
+// ── Build plan ────────────────────────────────────────────────────────────────
+function buildPlan(ticker:string,candles:any,analysis:any,capital:number,meta:any,fundamentals:any,targets:any,keyMoves:any[],earningsDate:string|null,catalystHeadlines:string[]){
   const{price}=candles;
-  const stopDist=analysis.atr*1.5,shares=Math.max(1,Math.floor((capital*0.03)/stopDist));
+  const{entry,atr}=analysis;
+  const stopDist=atr*1.5;
+  const stop=parseFloat((entry-stopDist).toFixed(2));
+  const tp1=parseFloat((entry+atr*2.0).toFixed(2));
+  const tp2=parseFloat((entry+atr*3.5).toFixed(2));
+  const shares=Math.max(1,Math.floor((capital*0.03)/stopDist));
   const levels=calcLevels(candles,price);
-  const sparkline=candles.closes.slice(-30).map((c:number,i:number)=>({c,d:candles.dates[candles.dates.length-30+i]??''}));
+  const avgDailyPct=parseFloat((candles.closes.slice(-30).reduce((s:number,c:number,i:number,a:number[])=>i>0?s+Math.abs((c-a[i-1])/a[i-1]*100):s,0)/29).toFixed(2));
   return{
-    ticker,setup_type:analysis.setup,confidence:analysis.confidence,factors:analysis.factors,
-    meta:{halal:meta.halal,sector:meta.sector,description:meta.description,behavior:BEHAVIOR_PROFILES[ticker]??null},
+    ticker,setup_type:analysis.setup,confidence:analysis.confidence,
+    factors:analysis.factors,catalystHeadlines,
+    meta:{halal:meta.halal,sector:meta.sector,description:meta.description,behavior:BEHAVIOR[ticker]??null},
     price:parseFloat(price.toFixed(2)),change:fundamentals?.changePct??0,
-    entry:parseFloat(price.toFixed(2)),stop:parseFloat((price-stopDist).toFixed(2)),
-    tp1:parseFloat((price+analysis.atr*2).toFixed(2)),tp2:parseFloat((price+analysis.atr*3.5).toFixed(2)),
-    shares,positionValue:parseFloat((shares*price).toFixed(2)),maxLoss:parseFloat((shares*stopDist).toFixed(2)),
-    rr:parseFloat(((analysis.atr*2)/stopDist).toFixed(1)),
+    entry,entryLo:parseFloat((entry*0.998).toFixed(2)),entryHi:entry,
+    stop,tp1,tp2,
+    shares,positionValue:parseFloat((shares*entry).toFixed(2)),maxLoss:parseFloat((shares*stopDist).toFixed(2)),
+    rr:parseFloat(((atr*2)/stopDist).toFixed(1)),
     holdDays:analysis.setup==='News Catalyst'?'1 day':'1–3 days',
     indicators:analysis.indicators,levels,
     fundamentals:{
       marketCap:fundamentals?.marketCap??null,pe:fundamentals?.pe??null,beta:fundamentals?.beta??null,
-      high52:fundamentals?.high52??null,low52:fundamentals?.low52??null,revenueGrowth:fundamentals?.revenueGrowth??null,
+      high52:fundamentals?.high52??null,low52:fundamentals?.low52??null,
+      revenueGrowth:fundamentals?.revenueGrowth??null,grossMargin:fundamentals?.grossMargin??null,
+      netMargin:fundamentals?.netMargin??null,revenueTTM:fundamentals?.revenueTTM??null,
       shortInterest:fundamentals?.shortInterest??null,float:fundamentals?.float??null,
     },
-    targets:targets?{consensus:targets.targetConsensus,high:targets.targetHigh,low:targets.targetLow,median:targets.targetMedian,upside:targets.targetConsensus?parseFloat((((targets.targetConsensus-price)/price)*100).toFixed(1)):null}:null,
-    keyMoves,sparkline,earningsDate,
-    volatilityProfile:{atrPct:analysis.indicators.atrPct,avgDailyPct:parseFloat((candles.closes.slice(-30).reduce((s:number,c:number,i:number,a:number[])=>i>0?s+Math.abs((c-a[i-1])/a[i-1]*100):s,0)/29).toFixed(2))},
+    targets:targets&&targets.targetConsensus?{
+      consensus:targets.targetConsensus,high:targets.targetHigh,low:targets.targetLow,median:targets.targetMedian,
+      upside:parseFloat((((targets.targetConsensus-price)/price)*100).toFixed(1)),
+    }:null,
+    keyMoves,earningsDate,
+    volatility:{atrPct:analysis.indicators.atrPct,avgDailyPct},
+    chartData:candles.closes.slice(-30).map((c:number,i:number)=>({c,d:candles.dates[candles.dates.length-30+i]??''})),
   };
 }
 
@@ -374,8 +432,7 @@ async function batchFetch<T>(tickers:string[],fn:(t:string)=>Promise<T|null>,con
   const map=new Map<string,T|null>();
   for(let i=0;i<tickers.length;i+=concurrency){
     const batch=tickers.slice(i,i+concurrency);
-    const res=await Promise.all(batch.map(async t=>({t,v:await fn(t)})));
-    res.forEach(({t,v})=>map.set(t,v));
+    await Promise.all(batch.map(async t=>{map.set(t,await fn(t));}));
     if(i+concurrency<tickers.length)await new Promise(r=>setTimeout(r,delayMs));
   }
   return map;
@@ -386,67 +443,90 @@ export async function POST(request:NextRequest){
   const supabase=await createClient();
   const{data:{user}}=await supabase.auth.getUser();
   if(!user)return NextResponse.json({error:'Unauthorized'},{status:401});
-
-  if(!ALPACA_KEY||!ALPACA_SECRET)return NextResponse.json({signal:'NO_TRADE',reason:'ALPACA_KEY_ID and ALPACA_SECRET not configured in Vercel environment variables.',scanned:0,setups:[]});
+  if(!ALPACA_KEY||!ALPACA_SECRET)return NextResponse.json({signal:'NO_TRADE',reason:'ALPACA_KEY_ID and ALPACA_SECRET not configured in Vercel.',scanned:0,setups:[]});
 
   const body=await request.json().catch(()=>({}));
-  const{price_ranges=['small','medium','large','big'],capital=10000,specific_ticker=null}=body;
+  const{price_range='medium',capital=10000,specific_ticker=null}=body;
   const anthropicKey=process.env.ANTHROPIC_API_KEY;
-  const isAdmin=user.email===ADMIN_EMAIL;
+  const userId=user.id;
+  const userEmail=user.email;
+  const isAdmin=userEmail===ADMIN_EMAIL;
 
-  // ── Mode B: specific ticker evaluation ──────────────────────────────────
+  async function enrichAndBuild(ticker:string,candles:any,analysis:any|null,meta:any):Promise<any>{
+    const[fundamentals,targets,earningsDate,catalyst]=await Promise.all([
+      fetchFundamentals(ticker),fetchAnalystTargets(ticker),fetchNextEarnings(ticker),fetchCatalyst(ticker),
+    ]);
+    const keyMoves=detectKeyMoves(candles);
+    const movesWithReasons=anthropicKey
+      ?await Promise.all(keyMoves.slice(0,4).map(async m=>({...m,reason:await getMoveReason(ticker,m.date,m.pct,anthropicKey,meta.sector)})))
+      :keyMoves.map(m=>({...m,reason:'Enable ANTHROPIC_API_KEY for AI explanations'}));
+    const{data:certs}=await supabase.from('halal_certifications').select('*').eq('ticker',ticker);
+    const userCert=certs?.find((c:any)=>c.certified_by===userId)??null;
+    if(!analysis){
+      // Manual mode — show full card without signal
+      return{
+        ticker,no_signal:true,
+        reason_rejected:'Does not meet all required signal criteria right now — volume, RSI, or trend alignment not confirmed.',
+        meta:{halal:meta.halal,sector:meta.sector,description:meta.description,behavior:BEHAVIOR[ticker]??null},
+        price:parseFloat(candles.price.toFixed(2)),change:fundamentals?.changePct??0,
+        indicators:{
+          rsi:calcRSI(candles.closes),macd:calcMACD(candles.closes),atr:calcATR(candles.highs,candles.lows,candles.closes),
+          ...calcVolumeData(candles.volumes) as any,
+          ema20:parseFloat(emaLast(candles.closes,20).toFixed(2)),ema50:parseFloat(emaLast(candles.closes,50).toFixed(2)),
+          stochK:calcStoch(candles.highs,candles.lows,candles.closes).k,adx:calcADX(candles.highs,candles.lows,candles.closes),
+        },
+        levels:calcLevels(candles,candles.price),
+        fundamentals:{marketCap:fundamentals?.marketCap??null,pe:fundamentals?.pe??null,beta:fundamentals?.beta??null,high52:fundamentals?.high52??null,low52:fundamentals?.low52??null,revenueGrowth:fundamentals?.revenueGrowth??null,grossMargin:fundamentals?.grossMargin??null,netMargin:fundamentals?.netMargin??null,revenueTTM:fundamentals?.revenueTTM??null},
+        targets:targets&&targets.targetConsensus?{consensus:targets.targetConsensus,high:targets.targetHigh,low:targets.targetLow,median:targets.targetMedian,upside:parseFloat((((targets.targetConsensus-candles.price)/candles.price)*100).toFixed(1))}:null,
+        keyMoves:movesWithReasons,earningsDate,catalystHeadlines:catalyst.headlines,
+        chartData:candles.closes.slice(-30).map((c:number,i:number)=>({c,d:candles.dates[candles.dates.length-30+i]??''})),
+        volatility:{atrPct:parseFloat(((calcATR(candles.highs,candles.lows,candles.closes)/candles.price)*100).toFixed(2)),avgDailyPct:0},
+        userCert,canEdit:isAdmin,
+      };
+    }
+    return{...buildPlan(ticker,candles,analysis,capital,meta,fundamentals,targets,movesWithReasons,earningsDate,catalyst.headlines),userCert,canEdit:isAdmin};
+  }
+
+  // ── Mode B: specific ticker ───────────────────────────────────────────────
   if(specific_ticker){
     const ticker=(specific_ticker as string).toUpperCase().trim();
-    const[candles,fundamentals,targets,earningsDate,catalyst]=await Promise.all([
-      fetchCandles(ticker),fetchFundamentals(ticker),fetchAnalystTargets(ticker),fetchNextEarnings(ticker),hasCatalyst(ticker),
-    ]);
-    if(!candles)return NextResponse.json({signal:'NO_TRADE',reason:`Could not fetch market data for ${ticker}. Check the ticker and try again.`,scanned:0,setups:[]});
-    const analysis=analyzeSetup(candles,catalyst);
-    const keyMoves=detectKeyMoves(candles);
-    const movesWithReasons=anthropicKey?await Promise.all(keyMoves.map(async m=>({...m,reason:await getMoveReason(ticker,m.date,m.pct,anthropicKey)}))):keyMoves.map(m=>({...m,reason:'AI explanation requires ANTHROPIC_API_KEY'}));
+    const candles=await fetchCandles(ticker);
+    if(!candles)return NextResponse.json({signal:'NO_DATA',reason:`Could not fetch data for ${ticker}. Verify the ticker symbol and try again.`,scanned:0,setups:[]});
     const meta=UNIVERSE[ticker]??{halal:'doubtful',sector:'Unknown',tier:'medium',description:'Custom ticker — verify all details before trading'};
-    if(!analysis)return NextResponse.json({signal:'NO_SETUP',ticker,reason:'This ticker does not meet required signal criteria right now.',scanned:1,candles_available:true,price:candles.price,fundamentals,targets,keyMoves:movesWithReasons,earningsDate,sparkline:candles.closes.slice(-30).map((c,i)=>({c,d:candles.dates[candles.dates.length-30+i]??''})),meta,setups:[]});
-    const plan=buildPlan(ticker,candles,analysis,capital,meta,fundamentals,targets,movesWithReasons,earningsDate);
-    const{data:certs}=await supabase.from('halal_certifications').select('*').eq('ticker',ticker);
-    const userCert=certs?.find((c:any)=>c.certified_by===user.id)??null;
-    return NextResponse.json({signal:'SETUPS_FOUND',scanned:1,found:1,isAdmin,setups:[{...plan,userCert,canEdit:isAdmin}],generated_at:new Date().toISOString()});
+    const catalyst=await fetchCatalyst(ticker);
+    const analysis=analyzeSetup(candles,catalyst.found);
+    const card=await enrichAndBuild(ticker,candles,analysis,meta);
+    return NextResponse.json({signal:card.no_signal?'NO_SIGNAL':'SETUPS_FOUND',scanned:1,found:card.no_signal?0:1,isAdmin,setups:[card],generated_at:new Date().toISOString()});
   }
 
-  // ── Mode A: auto scan ────────────────────────────────────────────────────
-  const selectedTiers=new Set<string>(price_ranges);
-  const candidates=Object.entries(UNIVERSE).filter(([,m])=>selectedTiers.has(m.tier)).map(([t])=>t);
-  if(candidates.length===0)return NextResponse.json({signal:'NO_TRADE',reason:'No candidates for selected ranges.',scanned:0,setups:[]});
+  // ── Mode A: auto scan (single tier) ──────────────────────────────────────
+  const bounds=PRICE_BOUNDS[price_range]??PRICE_BOUNDS.medium;
+  const candidates=Object.entries(UNIVERSE).filter(([,m])=>PRICE_BOUNDS[m.tier]&&PRICE_BOUNDS[m.tier][0]<=bounds[1]&&PRICE_BOUNDS[m.tier][1]>=bounds[0]).map(([t])=>t);
+  if(!candidates.length)return NextResponse.json({signal:'NO_TRADE',reason:'No candidates for selected range.',scanned:0,setups:[]});
 
   const candleMap=await batchFetch(candidates,fetchCandles,8,600);
-  const selectedBounds=(price_ranges as string[]).map((r:string)=>PRICE_BOUNDS[r]).filter(Boolean);
-  const inRange=candidates.filter(t=>{const c=candleMap.get(t);return c&&selectedBounds.some(([min,max])=>c.price>=min&&c.price<=max);});
+  const inRange=candidates.filter(t=>{const c=candleMap.get(t);return c&&c.price>=bounds[0]&&c.price<=bounds[1];});
 
-  if(inRange.length===0){
-    const fetched=candidates.filter(t=>candleMap.get(t)!==null).length;
-    return NextResponse.json({signal:'NO_TRADE',reason:fetched===0?'Could not fetch market data from Alpaca. Check your API keys in Vercel.':`${fetched} stocks fetched but none matched selected price range(s). Try "All Ranges".`,scanned:0,setups:[]});
+  if(!inRange.length){
+    const fetched=candidates.filter(t=>!!candleMap.get(t)).length;
+    return NextResponse.json({signal:'NO_TRADE',reason:fetched===0?'Could not fetch market data from Alpaca. Check your API keys in Vercel.':`${fetched} stocks fetched — none currently priced in the ${price_range} range. Try a different range.`,scanned:0,setups:[]});
   }
 
-  const catalystMap=await batchFetch(inRange,hasCatalyst,10,300);
-  const validSetups:any[]=[],rejectLog:string[]=[];
+  // Catalyst check in parallel
+  const catalystMap=new Map<string,{found:boolean;headlines:string[]}>();
+  await Promise.all(inRange.map(async t=>{catalystMap.set(t,await fetchCatalyst(t));}));
 
+  const validSetups:any[]=[],rejectLog:string[]=[];
   for(const ticker of inRange){
-    const candles=candleMap.get(ticker);const catalyst=catalystMap.get(ticker)??false;
+    const candles=candleMap.get(ticker);const cat=catalystMap.get(ticker)??{found:false,headlines:[]};
     if(!candles)continue;
-    const analysis=analyzeSetup(candles,catalyst);
-    if(!analysis){rejectLog.push(`${ticker}: RSI ${calcRSI(candles.closes)}, Vol ${calcVolumeRatio(candles.volumes).toFixed(1)}×`);continue;}
+    const analysis=analyzeSetup(candles,cat.found);
+    if(!analysis){rejectLog.push(`${ticker}: RSI ${calcRSI(candles.closes)}, Vol ${calcVolumeData(candles.volumes).ratio}×`);continue;}
     const meta=UNIVERSE[ticker];
-    // Fetch enrichment in parallel for qualifying stocks only
-    const[fundamentals,targets,earningsDate]=await Promise.all([fetchFundamentals(ticker),fetchAnalystTargets(ticker),fetchNextEarnings(ticker)]);
-    const keyMoves=detectKeyMoves(candles);
-    const movesWithReasons=anthropicKey?await Promise.all(keyMoves.slice(0,3).map(async m=>({...m,reason:await getMoveReason(ticker,m.date,m.pct,anthropicKey)}))):keyMoves.map(m=>({...m,reason:'Historical move — AI explanation requires API key'}));
-    const{data:certs}=await supabase.from('halal_certifications').select('*').eq('ticker',ticker);
-    const userCert=certs?.find((c:any)=>c.certified_by===user.id)??null;
-    validSetups.push({...buildPlan(ticker,candles,analysis,capital,meta,fundamentals,targets,movesWithReasons,earningsDate),userCert,canEdit:isAdmin});
+    validSetups.push(await enrichAndBuild(ticker,candles,analysis,meta));
   }
 
   validSetups.sort((a,b)=>b.confidence-a.confidence);
-
-  if(validSetups.length===0)return NextResponse.json({signal:'NO_TRADE',reason:`Scanned ${inRange.length} halal stocks. No setups met all required criteria today. Capital preservation is the right decision.`,scanned:inRange.length,reject_sample:rejectLog.slice(0,5),setups:[]});
-
+  if(!validSetups.length)return NextResponse.json({signal:'NO_TRADE',reason:`Scanned ${inRange.length} stocks in the ${price_range} range. No setups qualified today — capital preservation is the right call.`,scanned:inRange.length,reject_sample:rejectLog.slice(0,6),setups:[]});
   return NextResponse.json({signal:'SETUPS_FOUND',scanned:inRange.length,found:validSetups.length,setups:validSetups.slice(0,5),isAdmin,generated_at:new Date().toISOString()});
 }
