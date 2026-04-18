@@ -79,7 +79,6 @@ const UNIVERSE: Record<string, UniverseEntry> = {
   AXGN: { halal:'high',    sector:'Medical Devices',  tier:'small',  description:'Axogen — surgical nerve repair devices' },
   AAOI: { halal:'high',    sector:'Networking',       tier:'small',  description:'Applied Optoelectronics — optical networking' },
   CPNG: { halal:'high',    sector:'E-Commerce',       tier:'small',  description:'Coupang — South Korean e-commerce giant' },
-  MIRM: { halal:'high',    sector:'Pharma',           tier:'small',  description:'Mirum Pharmaceuticals — rare liver diseases' },
   // ── MEDIUM ($26–$100) ──────────────────────────────────────────────────────
   AMD:  { halal:'high',    sector:'Semiconductors',   tier:'medium', description:'CPUs, GPUs, and AI chips — competing with NVDA in data centers' },
   QCOM: { halal:'high',    sector:'Semiconductors',   tier:'medium', description:'Mobile chipsets and wireless technology licensing' },
@@ -121,6 +120,7 @@ const UNIVERSE: Record<string, UniverseEntry> = {
   VSEC: { halal:'high',    sector:'Aerospace',        tier:'medium', description:'VSE Corporation — aerospace MRO services' },
   KO:   { halal:'doubtful',sector:'Beverages',        tier:'medium', description:'Coca-Cola — some alcohol distribution in portfolio' },
   CSX:  { halal:'high',    sector:'Transportation',   tier:'medium', description:'CSX — freight railroad across eastern US' },
+  MIRM: { halal:'high',    sector:'Pharma',           tier:'medium', description:'Mirum Pharmaceuticals — rare liver diseases' },
   VRT:  { halal:'high',    sector:'Power Mgmt',       tier:'medium', description:'Vertiv — power and cooling for data centers' },
   // ── LARGE ($101–$200) ──────────────────────────────────────────────────────
   NVDA: { halal:'high',    sector:'Semiconductors',   tier:'large',  description:'Dominant AI GPU manufacturer — powers data centers worldwide' },
@@ -371,13 +371,19 @@ function analyzeSetup(candles:{closes:number[];highs:number[];lows:number[];volu
 function calcLevels(c:{closes:number[];highs:number[];lows:number[]},price:number){
   const{closes,highs,lows}=c;
   const n=closes.length;
-  const pp=(highs[n-2]+lows[n-2]+closes[n-2])/3;
-  const r1=2*pp-lows[n-2],r2=pp+(highs[n-2]-lows[n-2]),s1=2*pp-highs[n-2],s2=pp-(highs[n-2]-lows[n-2]);
+  // Pivot points from previous session
+  const pdh=parseFloat(highs[n-2].toFixed(2));  // Previous Day High (Rumers Box top)
+  const pdl=parseFloat(lows[n-2].toFixed(2));   // Previous Day Low  (Rumers Box bottom)
+  const pdm=parseFloat(((pdh+pdl)/2).toFixed(2)); // Box midpoint — indecision zone
+  const pp=(pdh+pdl+closes[n-2])/3;
+  const r1=2*pp-pdl,r2=pp+(pdh-pdl),s1=2*pp-pdh,s2=pp-(pdh-pdl);
+  // Fibonacci from 60-bar swing
   const swingHi=Math.max(...highs.slice(-60)),swingLo=Math.min(...lows.slice(-60));
   const range=swingHi-swingLo,isUp=(price-swingLo)>(swingHi-price);
   const base=isUp?swingLo:swingHi,sign=isUp?1:-1;
   const atr=calcATR(highs,lows,closes);
   return{
+    pdh,pdl,pdm,  // Previous Day High/Low/Mid — The Rumers Box levels
     r2:parseFloat(r2.toFixed(2)),r1:parseFloat(r1.toFixed(2)),
     s1:parseFloat(s1.toFixed(2)),s2:parseFloat(s2.toFixed(2)),
     pivot:parseFloat(pp.toFixed(2)),
@@ -390,8 +396,9 @@ function calcLevels(c:{closes:number[];highs:number[];lows:number[]},price:numbe
 }
 
 // ── Build plan ────────────────────────────────────────────────────────────────
-function buildPlan(ticker:string,candles:any,analysis:any,capital:number,meta:any,fundamentals:any,targets:any,keyMoves:any[],earningsDate:string|null,catalystHeadlines:string[]){
-  const{price}=candles;
+function buildPlan(ticker:string,candles:any,analysis:any,capital:number,meta:any,fundamentals:any,targets:any,keyMoves:any[],earningsDate:string|null,catalystHeadlines:string[],behavior:any){
+  // Use Finnhub real-time price if available, else Alpaca last close
+  const price=fundamentals?.price&&fundamentals.price>0 ? fundamentals.price : candles.price;
   const{entry,atr}=analysis;
   const stopDist=atr*1.5;
   const stop=parseFloat((entry-stopDist).toFixed(2));
@@ -400,11 +407,19 @@ function buildPlan(ticker:string,candles:any,analysis:any,capital:number,meta:an
   const shares=Math.max(1,Math.floor((capital*0.03)/stopDist));
   const levels=calcLevels(candles,price);
   const avgDailyPct=parseFloat((candles.closes.slice(-30).reduce((s:number,c:number,i:number,a:number[])=>i>0?s+Math.abs((c-a[i-1])/a[i-1]*100):s,0)/29).toFixed(2));
+
+  // Dollar financials: calculate from TTM revenue + margins
+  const revTTM=fundamentals?.revenueTTM??null; // already in dollars from Finnhub metric
+  const grossProfit=revTTM&&fundamentals?.grossMargin!=null?Math.round(revTTM*(fundamentals.grossMargin/100)):null;
+  const netIncome=revTTM&&fundamentals?.netMargin!=null?Math.round(revTTM*(fundamentals.netMargin/100)):null;
+
   return{
     ticker,setup_type:analysis.setup,confidence:analysis.confidence,
     factors:analysis.factors,catalystHeadlines,
-    meta:{halal:meta.halal,sector:meta.sector,description:meta.description,behavior:BEHAVIOR[ticker]??null},
-    price:parseFloat(price.toFixed(2)),change:fundamentals?.changePct??0,
+    meta:{halal:meta.halal,sector:meta.sector,description:meta.description,behavior},
+    price:parseFloat(price.toFixed(2)),
+    priceSource:fundamentals?.price>0?'realtime':'delayed',
+    change:fundamentals?.changePct??0,
     entry,entryLo:parseFloat((entry*0.998).toFixed(2)),entryHi:entry,
     stop,tp1,tp2,
     shares,positionValue:parseFloat((shares*entry).toFixed(2)),maxLoss:parseFloat((shares*stopDist).toFixed(2)),
@@ -414,8 +429,9 @@ function buildPlan(ticker:string,candles:any,analysis:any,capital:number,meta:an
     fundamentals:{
       marketCap:fundamentals?.marketCap??null,pe:fundamentals?.pe??null,beta:fundamentals?.beta??null,
       high52:fundamentals?.high52??null,low52:fundamentals?.low52??null,
-      revenueGrowth:fundamentals?.revenueGrowth??null,grossMargin:fundamentals?.grossMargin??null,
-      netMargin:fundamentals?.netMargin??null,revenueTTM:fundamentals?.revenueTTM??null,
+      revenueGrowth:fundamentals?.revenueGrowth??null,
+      revenueTTM:revTTM,grossProfit,netIncome,
+      grossMarginPct:fundamentals?.grossMargin??null,netMarginPct:fundamentals?.netMargin??null,
       shortInterest:fundamentals?.shortInterest??null,float:fundamentals?.float??null,
     },
     targets:targets&&targets.targetConsensus?{
@@ -424,7 +440,10 @@ function buildPlan(ticker:string,candles:any,analysis:any,capital:number,meta:an
     }:null,
     keyMoves,earningsDate,
     volatility:{atrPct:analysis.indicators.atrPct,avgDailyPct},
-    chartData:candles.closes.slice(-30).map((c:number,i:number)=>({c,d:candles.dates[candles.dates.length-30+i]??''})),
+    chartData:candles.closes.slice(-60).map((c:number,i:number)=>({
+      date:candles.dates[candles.dates.length-60+i]??'',
+      close:c,
+    })),
   };
 }
 
@@ -438,6 +457,47 @@ async function batchFetch<T>(tickers:string[],fn:(t:string)=>Promise<T|null>,con
   return map;
 }
 
+// ── Generate behavior profile for any stock via Claude ───────────────────────
+async function generateBehavior(ticker:string,sector:string,description:string,apiKey:string):Promise<{primary:string;pattern:string;avoid:string;best:string}|null>{
+  try{
+    const res=await fetch(ANTHROPIC_URL,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-6',max_tokens:200,
+        messages:[{role:'user',content:`For the stock ${ticker} (${sector} sector: ${description}), provide a brief trading behavior profile in this exact JSON format with no other text:
+{"primary":"what primarily drives this stock's price movements","pattern":"typical movement behavior and earnings reaction","avoid":"when NOT to trade this (market conditions or catalysts)","best":"what type of setup works best for this stock"}
+Keep each field under 15 words. Be specific to this company.`}],
+      }),
+    });
+    const d=await res.json();
+    const txt=d.content?.[0]?.text?.trim()??'';
+    const m=txt.match(/\{[\s\S]*\}/);
+    if(m)return JSON.parse(m[0]);
+    return null;
+  }catch{return null;}
+}
+
+// ── Pick One ranking — Claude compares all setups and picks best ──────────────
+async function generatePickOne(setups:any[],apiKey:string):Promise<string>{
+  if(setups.length<=1)return '';
+  try{
+    const summary=setups.map((s,i)=>
+      `${i+1}. ${s.ticker} (${s.meta?.sector}) — Confidence ${s.confidence}/10, R:R 1:${s.rr}, Setup: ${s.setup_type}, ATR%: ${s.volatility?.atrPct}%, Earnings: ${s.earningsDate??'none in 90d'}, Analyst upside: ${s.targets?.upside!=null?s.targets.upside+'%':'N/A'}`
+    ).join('\n');
+    const res=await fetch(ANTHROPIC_URL,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-6',max_tokens:120,
+        messages:[{role:'user',content:`You are a professional momentum trader. Given these setups, which single one would you prioritise today if you could only enter one trade? Answer in 2 sentences max. Start with the ticker name.\n\n${summary}`}],
+      }),
+    });
+    const d=await res.json();
+    return d.content?.[0]?.text?.trim()??'';
+  }catch{return '';}
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 export async function POST(request:NextRequest){
   const supabase=await createClient();
@@ -448,11 +508,9 @@ export async function POST(request:NextRequest){
   const body=await request.json().catch(()=>({}));
   const{price_range='medium',capital=10000,specific_ticker=null}=body;
   const anthropicKey=process.env.ANTHROPIC_API_KEY;
-  const userId=user.id;
-  const userEmail=user.email;
-  const isAdmin=userEmail===ADMIN_EMAIL;
+  const isAdmin=user.email===ADMIN_EMAIL;
 
-  async function enrichAndBuild(ticker:string,candles:any,analysis:any|null,meta:any):Promise<any>{
+  async function enrichAndBuild(ticker:string,candles:any,analysis:any|null,meta:any,user:any):Promise<any>{
     const[fundamentals,targets,earningsDate,catalyst]=await Promise.all([
       fetchFundamentals(ticker),fetchAnalystTargets(ticker),fetchNextEarnings(ticker),fetchCatalyst(ticker),
     ]);
@@ -460,31 +518,47 @@ export async function POST(request:NextRequest){
     const movesWithReasons=anthropicKey
       ?await Promise.all(keyMoves.slice(0,4).map(async m=>({...m,reason:await getMoveReason(ticker,m.date,m.pct,anthropicKey,meta.sector)})))
       :keyMoves.map(m=>({...m,reason:'Enable ANTHROPIC_API_KEY for AI explanations'}));
+    // Behavior: use manual profile if available, else Claude-generate it
+    const behavior=BEHAVIOR[ticker]??(anthropicKey?await generateBehavior(ticker,meta.sector,meta.description,anthropicKey):null);
     const{data:certs}=await supabase.from('halal_certifications').select('*').eq('ticker',ticker);
-    const userCert=certs?.find((c:any)=>c.certified_by===userId)??null;
+    const userCert=certs?.find((c:any)=>c.certified_by===user.id)??null;
+    // Use real-time price from fundamentals for display
+    const displayPrice=fundamentals?.price&&fundamentals.price>0?fundamentals.price:candles.price;
     if(!analysis){
-      // Manual mode — show full card without signal
+      const atr=calcATR(candles.highs,candles.lows,candles.closes);
+      const revTTM=fundamentals?.revenueTTM??null;
       return{
         ticker,no_signal:true,
         reason_rejected:'Does not meet all required signal criteria right now — volume, RSI, or trend alignment not confirmed.',
-        meta:{halal:meta.halal,sector:meta.sector,description:meta.description,behavior:BEHAVIOR[ticker]??null},
-        price:parseFloat(candles.price.toFixed(2)),change:fundamentals?.changePct??0,
+        meta:{halal:meta.halal,sector:meta.sector,description:meta.description,behavior},
+        price:parseFloat(displayPrice.toFixed(2)),
+        priceSource:fundamentals?.price>0?'realtime':'delayed',
+        change:fundamentals?.changePct??0,
         indicators:{
-          rsi:calcRSI(candles.closes),macd:calcMACD(candles.closes),atr:calcATR(candles.highs,candles.lows,candles.closes),
+          rsi:calcRSI(candles.closes),macd:calcMACD(candles.closes),atr,
+          atrPct:parseFloat((atr/displayPrice*100).toFixed(2)),
           ...calcVolumeData(candles.volumes) as any,
           ema20:parseFloat(emaLast(candles.closes,20).toFixed(2)),ema50:parseFloat(emaLast(candles.closes,50).toFixed(2)),
           stochK:calcStoch(candles.highs,candles.lows,candles.closes).k,adx:calcADX(candles.highs,candles.lows,candles.closes),
         },
-        levels:calcLevels(candles,candles.price),
-        fundamentals:{marketCap:fundamentals?.marketCap??null,pe:fundamentals?.pe??null,beta:fundamentals?.beta??null,high52:fundamentals?.high52??null,low52:fundamentals?.low52??null,revenueGrowth:fundamentals?.revenueGrowth??null,grossMargin:fundamentals?.grossMargin??null,netMargin:fundamentals?.netMargin??null,revenueTTM:fundamentals?.revenueTTM??null},
-        targets:targets&&targets.targetConsensus?{consensus:targets.targetConsensus,high:targets.targetHigh,low:targets.targetLow,median:targets.targetMedian,upside:parseFloat((((targets.targetConsensus-candles.price)/candles.price)*100).toFixed(1))}:null,
+        levels:calcLevels(candles,displayPrice),
+        fundamentals:{
+          marketCap:fundamentals?.marketCap??null,pe:fundamentals?.pe??null,beta:fundamentals?.beta??null,
+          high52:fundamentals?.high52??null,low52:fundamentals?.low52??null,
+          revenueGrowth:fundamentals?.revenueGrowth??null,
+          revenueTTM:revTTM,
+          grossProfit:revTTM&&fundamentals?.grossMargin!=null?Math.round(revTTM*(fundamentals.grossMargin/100)):null,
+          netIncome:revTTM&&fundamentals?.netMargin!=null?Math.round(revTTM*(fundamentals.netMargin/100)):null,
+          grossMarginPct:fundamentals?.grossMargin??null,netMarginPct:fundamentals?.netMargin??null,
+        },
+        targets:targets&&targets.targetConsensus?{consensus:targets.targetConsensus,high:targets.targetHigh,low:targets.targetLow,median:targets.targetMedian,upside:parseFloat((((targets.targetConsensus-displayPrice)/displayPrice)*100).toFixed(1))}:null,
         keyMoves:movesWithReasons,earningsDate,catalystHeadlines:catalyst.headlines,
-        chartData:candles.closes.slice(-30).map((c:number,i:number)=>({c,d:candles.dates[candles.dates.length-30+i]??''})),
-        volatility:{atrPct:parseFloat(((calcATR(candles.highs,candles.lows,candles.closes)/candles.price)*100).toFixed(2)),avgDailyPct:0},
+        chartData:candles.closes.slice(-60).map((c:number,i:number)=>({date:candles.dates[candles.dates.length-60+i]??'',close:c})),
+        volatility:{atrPct:parseFloat((atr/displayPrice*100).toFixed(2)),avgDailyPct:0},
         userCert,canEdit:isAdmin,
       };
     }
-    return{...buildPlan(ticker,candles,analysis,capital,meta,fundamentals,targets,movesWithReasons,earningsDate,catalyst.headlines),userCert,canEdit:isAdmin};
+    return{...buildPlan(ticker,candles,analysis,capital,meta,fundamentals,targets,movesWithReasons,earningsDate,catalyst.headlines,behavior),userCert,canEdit:isAdmin};
   }
 
   // ── Mode B: specific ticker ───────────────────────────────────────────────
@@ -495,7 +569,7 @@ export async function POST(request:NextRequest){
     const meta=UNIVERSE[ticker]??{halal:'doubtful',sector:'Unknown',tier:'medium',description:'Custom ticker — verify all details before trading'};
     const catalyst=await fetchCatalyst(ticker);
     const analysis=analyzeSetup(candles,catalyst.found);
-    const card=await enrichAndBuild(ticker,candles,analysis,meta);
+    const card=await enrichAndBuild(ticker,candles,analysis,meta,user);
     return NextResponse.json({signal:card.no_signal?'NO_SIGNAL':'SETUPS_FOUND',scanned:1,found:card.no_signal?0:1,isAdmin,setups:[card],generated_at:new Date().toISOString()});
   }
 
@@ -523,10 +597,14 @@ export async function POST(request:NextRequest){
     const analysis=analyzeSetup(candles,cat.found);
     if(!analysis){rejectLog.push(`${ticker}: RSI ${calcRSI(candles.closes)}, Vol ${calcVolumeData(candles.volumes).ratio}×`);continue;}
     const meta=UNIVERSE[ticker];
-    validSetups.push(await enrichAndBuild(ticker,candles,analysis,meta));
+    validSetups.push(await enrichAndBuild(ticker,candles,analysis,meta,user));
   }
 
   validSetups.sort((a,b)=>b.confidence-a.confidence);
   if(!validSetups.length)return NextResponse.json({signal:'NO_TRADE',reason:`Scanned ${inRange.length} stocks in the ${price_range} range. No setups qualified today — capital preservation is the right call.`,scanned:inRange.length,reject_sample:rejectLog.slice(0,6),setups:[]});
-  return NextResponse.json({signal:'SETUPS_FOUND',scanned:inRange.length,found:validSetups.length,setups:validSetups.slice(0,5),isAdmin,generated_at:new Date().toISOString()});
+
+  // Generate "Pick One" intelligence if multiple setups
+  const pickOne=validSetups.length>1&&anthropicKey?await generatePickOne(validSetups,anthropicKey):'';
+
+  return NextResponse.json({signal:'SETUPS_FOUND',scanned:inRange.length,found:validSetups.length,setups:validSetups.slice(0,5),pickOne,isAdmin,generated_at:new Date().toISOString()});
 }
