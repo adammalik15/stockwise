@@ -142,6 +142,7 @@ const UNIVERSE: Record<string, UniverseEntry> = {
   // ── BIG ($201–$400) ────────────────────────────────────────────────────────
   AVGO: { halal:'high',    sector:'Semiconductors',   tier:'big',    description:'Broadcom — custom AI chips, networking, and enterprise software' },
   TSM:  { halal:'high',    sector:'Semiconductors',   tier:'big',    description:'Taiwan Semiconductor — manufactures chips for Apple, NVDA, AMD' },
+  MA:   { halal:'high',    sector:'Payments',         tier:'big',    description:'Mastercard — payment network (processes, does not lend)' },
   V:    { halal:'high',    sector:'Payments',         tier:'big',    description:'Visa — global payment network technology' },
   ADBE: { halal:'high',    sector:'Software',         tier:'big',    description:'Adobe — creative software (Photoshop, Illustrator, PDF)' },
   ORCL: { halal:'high',    sector:'Cloud',            tier:'big',    description:'Oracle — enterprise database and cloud infrastructure' },
@@ -224,19 +225,20 @@ function emaSlope(closes:number[],period:number):boolean{
 }
 
 // ── Alpaca SIP candles ────────────────────────────────────────────────────────
-// CRITICAL: sort=desc (newest first) + reverse = always get the 90 MOST RECENT bars
-// sort=asc+start+limit returns oldest N bars, not newest — PDH/PDL would be months stale
+// sort=desc returns 0 bars on free/paper Alpaca accounts — must use sort=asc + start date
+// 130 calendar days ≈ 92 trading days, so bars[-1] will always be the most recent session
 async function fetchCandles(ticker:string):Promise<{closes:number[];highs:number[];lows:number[];volumes:number[];dates:string[];price:number}|null>{
   if(!ALPACA_KEY||!ALPACA_SECRET)return null;
   try{
-    const res=await fetch(`${ALPACA_BASE}/${ticker}/bars?timeframe=1Day&limit=90&feed=iex&sort=desc`,{
+    const start=new Date(Date.now()-130*86400000).toISOString().split('T')[0];
+    const res=await fetch(`${ALPACA_BASE}/${ticker}/bars?timeframe=1Day&limit=100&feed=iex&sort=asc&start=${start}`,{
       headers:{'APCA-API-KEY-ID':ALPACA_KEY,'APCA-API-SECRET-KEY':ALPACA_SECRET},
       signal:AbortSignal.timeout(8000),
     });
     if(!res.ok)return null;
-    const raw:any[]=(await res.json())?.bars??[];
-    if(raw.length<30)return null;
-    const bars=raw.slice().reverse(); // ascending: bars[0]=oldest, bars[n-1]=most recent session
+    const bars:any[]=(await res.json())?.bars??[];
+    if(bars.length<20)return null;
+    // sort=asc: bars[0]=oldest, bars[n-1]=most recent session — correct for PDH/PDL
     return{
       closes: bars.map((b:any)=>b.c),
       highs:  bars.map((b:any)=>b.h),
@@ -647,13 +649,12 @@ export async function POST(request:NextRequest){
   const supabase=await createClient();
   const{data:{user}}=await supabase.auth.getUser();
   if(!user)return NextResponse.json({error:'Unauthorized'},{status:401});
-  const authenticatedUser = user;
   if(!ALPACA_KEY||!ALPACA_SECRET)return NextResponse.json({signal:'NO_TRADE',reason:'ALPACA_KEY_ID and ALPACA_SECRET not configured in Vercel.',scanned:0,setups:[]});
 
   const body=await request.json().catch(()=>({}));
   const{price_range='medium',capital=10000,specific_ticker=null}=body;
   const anthropicKey=process.env.ANTHROPIC_API_KEY;
-  const isAdmin=authenticatedUser?.email===ADMIN_EMAIL;
+  const isAdmin=user.email===ADMIN_EMAIL;
 
   async function enrichAndBuild(ticker:string,candles:any,analysis:any|null,meta:any):Promise<any>{
     const[fundamentals,targets,earningsDate,catalyst]=await Promise.all([
@@ -669,7 +670,7 @@ export async function POST(request:NextRequest){
     // Behavior: use manual profile if available, else Claude-generate it
     const behavior=BEHAVIOR[ticker]??(anthropicKey?await generateBehavior(ticker,meta.sector,meta.description,anthropicKey):null);
     const{data:certs}=await supabase.from('halal_certifications').select('*').eq('ticker',ticker);
-    const userCert=certs?.find((c:any)=>c.certified_by===authenticatedUser.id)??null;
+    const userCert=certs?.find((c:any)=>c.certified_by===user!.id)??null;
     // Use real-time price from fundamentals for display
     const displayPrice=fundamentals?.price&&fundamentals.price>0?fundamentals.price:candles.price;
     if(!analysis){
