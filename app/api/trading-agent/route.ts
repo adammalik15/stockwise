@@ -142,7 +142,6 @@ const UNIVERSE: Record<string, UniverseEntry> = {
   // ── BIG ($201–$400) ────────────────────────────────────────────────────────
   AVGO: { halal:'high',    sector:'Semiconductors',   tier:'big',    description:'Broadcom — custom AI chips, networking, and enterprise software' },
   TSM:  { halal:'high',    sector:'Semiconductors',   tier:'big',    description:'Taiwan Semiconductor — manufactures chips for Apple, NVDA, AMD' },
-  MA:   { halal:'high',    sector:'Payments',         tier:'big',    description:'Mastercard — payment network (processes, does not lend)' },
   V:    { halal:'high',    sector:'Payments',         tier:'big',    description:'Visa — global payment network technology' },
   ADBE: { halal:'high',    sector:'Software',         tier:'big',    description:'Adobe — creative software (Photoshop, Illustrator, PDF)' },
   ORCL: { halal:'high',    sector:'Cloud',            tier:'big',    description:'Oracle — enterprise database and cloud infrastructure' },
@@ -155,6 +154,7 @@ const UNIVERSE: Record<string, UniverseEntry> = {
   ASML: { halal:'high',    sector:'Semiconductors',   tier:'premium',description:'EUV lithography machines — only supplier globally' },
   NVO:  { halal:'high',    sector:'Pharma',           tier:'premium',description:'Novo Nordisk — Ozempic and Wegovy GLP-1 global leader' },
   INTU: { halal:'high',    sector:'SaaS',             tier:'premium',description:'TurboTax, QuickBooks, Credit Karma — financial software' },
+  MA:   { halal:'high',    sector:'Payments',         tier:'premium',description:'Mastercard — payment network' },
   // ── ELITE ($701+) ─────────────────────────────────────────────────────────
   LRCX: { halal:'high',    sector:'Semiconductors',   tier:'elite',  description:'Lam Research — etch and deposition semiconductor equipment' },
   COST: { halal:'high',    sector:'Retail',           tier:'elite',  description:'Costco — membership warehouse with ultra-loyal customers' },
@@ -225,15 +225,27 @@ function emaSlope(closes:number[],period:number):boolean{
 }
 
 // ── Alpaca SIP candles ────────────────────────────────────────────────────────
+// CRITICAL: sort=desc (newest first) + reverse = always get the 90 MOST RECENT bars
+// sort=asc+start+limit returns oldest N bars, not newest — PDH/PDL would be months stale
 async function fetchCandles(ticker:string):Promise<{closes:number[];highs:number[];lows:number[];volumes:number[];dates:string[];price:number}|null>{
   if(!ALPACA_KEY||!ALPACA_SECRET)return null;
   try{
-    const start=new Date(Date.now()-140*86400000).toISOString().split('T')[0];
-    const res=await fetch(`${ALPACA_BASE}/${ticker}/bars?timeframe=1Day&limit=90&feed=sip&start=${start}&sort=asc`,{headers:{'APCA-API-KEY-ID':ALPACA_KEY,'APCA-API-SECRET-KEY':ALPACA_SECRET},signal:AbortSignal.timeout(8000)});
+    const res=await fetch(`${ALPACA_BASE}/${ticker}/bars?timeframe=1Day&limit=90&feed=sip&sort=desc`,{
+      headers:{'APCA-API-KEY-ID':ALPACA_KEY,'APCA-API-SECRET-KEY':ALPACA_SECRET},
+      signal:AbortSignal.timeout(8000),
+    });
     if(!res.ok)return null;
-    const bars:any[]=(await res.json())?.bars??[];
-    if(bars.length<30)return null;
-    return{closes:bars.map(b=>b.c),highs:bars.map(b=>b.h),lows:bars.map(b=>b.l),volumes:bars.map(b=>b.v),dates:bars.map(b=>b.t.split('T')[0]),price:bars[bars.length-1].c};
+    const raw:any[]=(await res.json())?.bars??[];
+    if(raw.length<30)return null;
+    const bars=raw.slice().reverse(); // ascending: bars[0]=oldest, bars[n-1]=most recent session
+    return{
+      closes: bars.map((b:any)=>b.c),
+      highs:  bars.map((b:any)=>b.h),
+      lows:   bars.map((b:any)=>b.l),
+      volumes:bars.map((b:any)=>b.v),
+      dates:  bars.map((b:any)=>b.t.split('T')[0]),
+      price:  bars[bars.length-1].c,
+    };
   }catch{return null;}
 }
 
@@ -636,6 +648,7 @@ export async function POST(request:NextRequest){
   const supabase=await createClient();
   const{data:{user}}=await supabase.auth.getUser();
   if(!user)return NextResponse.json({error:'Unauthorized'},{status:401});
+  const userId = user.id;
   if(!ALPACA_KEY||!ALPACA_SECRET)return NextResponse.json({signal:'NO_TRADE',reason:'ALPACA_KEY_ID and ALPACA_SECRET not configured in Vercel.',scanned:0,setups:[]});
 
   const body=await request.json().catch(()=>({}));
@@ -657,7 +670,7 @@ export async function POST(request:NextRequest){
     // Behavior: use manual profile if available, else Claude-generate it
     const behavior=BEHAVIOR[ticker]??(anthropicKey?await generateBehavior(ticker,meta.sector,meta.description,anthropicKey):null);
     const{data:certs}=await supabase.from('halal_certifications').select('*').eq('ticker',ticker);
-    const userCert=certs?.find((c:any)=>c.certified_by===user!.id)??null;
+    const userCert=certs?.find((c:any)=>c.certified_by===userId)??null;
     // Use real-time price from fundamentals for display
     const displayPrice=fundamentals?.price&&fundamentals.price>0?fundamentals.price:candles.price;
     if(!analysis){
@@ -726,15 +739,21 @@ export async function POST(request:NextRequest){
   const catalystMap=new Map<string,{found:boolean;headlines:string[]}>();
   await Promise.all(inRange.map(async t=>{catalystMap.set(t,await fetchCatalyst(t));}));
 
-  const validSetups:any[]=[],rejectLog:string[]=[];
+  // Signal check (synchronous, fast) — collect qualifying stocks
+  const rejectLog:string[]=[];
+  const qualifyingSetups:{ticker:string;candles:any;analysis:any;meta:any}[]=[];
   for(const ticker of inRange){
     const candles=candleMap.get(ticker);const cat=catalystMap.get(ticker)??{found:false,headlines:[]};
     if(!candles)continue;
     const analysis=analyzeSetup(candles,cat.found);
     if(!analysis){rejectLog.push(`${ticker}: RSI ${calcRSI(candles.closes)}, Vol ${calcVolumeData(candles.volumes).ratio}×`);continue;}
-    const meta=UNIVERSE[ticker];
-    validSetups.push(await enrichAndBuild(ticker,candles,analysis,meta));
+    qualifyingSetups.push({ticker,candles,analysis,meta:UNIVERSE[ticker]});
   }
+
+  // Enrich ALL qualifying stocks IN PARALLEL — avoids serial 3-4s per stock timeout
+  const validSetups=await Promise.all(
+    qualifyingSetups.map(({ticker,candles,analysis,meta})=>enrichAndBuild(ticker,candles,analysis,meta))
+  );
 
   validSetups.sort((a,b)=>b.confidence-a.confidence);
   if(!validSetups.length)return NextResponse.json({signal:'NO_TRADE',reason:`Scanned ${inRange.length} stocks in the ${price_range} range. No setups qualified today — capital preservation is the right call.`,scanned:inRange.length,reject_sample:rejectLog.slice(0,6),setups:[]});

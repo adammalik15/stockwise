@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic';
 import {
   Zap, Search, Loader2, TrendingUp, TrendingDown, Info,
   ChevronDown, ChevronUp, CheckCircle2, XCircle, AlertCircle,
-  RefreshCw, BookOpen, ExternalLink, Calendar, X,
+  RefreshCw, BookOpen, ExternalLink, Calendar,
   Brain, Shield, Target, Activity, AlertTriangle, Trophy, PanelRight,
 } from 'lucide-react';
 
@@ -250,13 +250,25 @@ function SetupCard({setup,eduMode,onCertify,certLoading,isTopPick}:{setup:any;ed
           <HalalBadge setup={setup} onCertify={onCertify} certLoading={certLoading} canEdit={setup.canEdit}/>
         </div>
 
-        {/* Price */}
+        {/* Price + analyst target */}
         <div className="flex items-center gap-3 flex-wrap">
           <span className="text-2xl font-bold text-white font-mono">${setup.price?.toFixed(2)}</span>
           <span className={`text-sm font-semibold flex items-center gap-0.5 ${chgPos?'text-accent-green':'text-accent-red'}`}>
             {chgPos?<TrendingUp size={13}/>:<TrendingDown size={13}/>}{chgPos?'+':''}{chg?.toFixed(2)}%
           </span>
           {!noSignal&&<span className={`text-xs font-bold ${confColor}`}>Signal {setup.confidence}/10<T id="confidence"/></span>}
+          {setup.targets?.consensus&&(
+            <div className="ml-auto flex items-center gap-1.5 bg-surface-3 rounded-lg px-2.5 py-1 border border-border">
+              <Target size={10} className="text-accent-green shrink-0"/>
+              <span className="text-[10px] text-muted">Target</span>
+              <span className="text-xs font-mono font-bold text-accent-green">${setup.targets.consensus.toFixed(2)}</span>
+              {setup.targets.upside!=null&&(
+                <span className={`text-[9px] font-bold ${setup.targets.upside>=0?'text-accent-green':'text-accent-red'}`}>
+                  {setup.targets.upside>=0?'+':''}{setup.targets.upside}%
+                </span>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Signal factors + catalyst */}
@@ -310,7 +322,7 @@ function SetupCard({setup,eduMode,onCertify,certLoading,isTopPick}:{setup:any;ed
 
         {/* Trade levels */}
         {levels&&!noSignal&&(
-          <div className="bg-surface-2 rounded-xl p-3 border border-border">
+          <div className="bg-surface-2 rounded-xl p-3 border border-border" data-guide-section="levels">
             <p className="text-[10px] text-muted font-semibold uppercase tracking-wide mb-2">Trade Levels<T id="sr"/></p>
             {/* PDH/PDL Rumers Box */}
             <div className="flex gap-2 mb-2">
@@ -355,9 +367,9 @@ function SetupCard({setup,eduMode,onCertify,certLoading,isTopPick}:{setup:any;ed
           </div>
         )}
 
-        {/* Position sizing — simplified, no redundant entry/stop/target */}
+        {/* Position sizing — simplified */}
         {!noSignal&&(
-          <div className="bg-surface-2 rounded-xl p-3 border border-border">
+          <div className="bg-surface-2 rounded-xl p-3 border border-border" data-guide-section="position">
             <div className="flex items-center gap-3 mb-2">
               <p className="text-[10px] text-muted font-semibold uppercase tracking-wide">Position Sizing<T id="capital"/></p>
               <div className="flex items-center gap-1.5 ml-auto">
@@ -420,7 +432,7 @@ function SetupCard({setup,eduMode,onCertify,certLoading,isTopPick}:{setup:any;ed
 
           {/* Indicators */}
           {ind.rsi!=null&&(
-            <div>
+            <div data-guide-section="indicators">
               <h4 className="text-xs font-bold text-white mb-3">📈 Indicator Dashboard</h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
                 <Gauge label="RSI (14)" value={ind.rsi} min={0} max={100} zones={RSI_Z} tipKey="rsi" eduMode={eduMode} eduVal={ind.rsi} ticks={[{v:28,l:'28'},{v:42,l:'42'},{v:65,l:'65'},{v:75,l:'75'}]}/>
@@ -457,7 +469,7 @@ function SetupCard({setup,eduMode,onCertify,certLoading,isTopPick}:{setup:any;ed
           )}
 
           {/* Fundamentals */}
-          <div>
+          <div data-guide-section="fundamentals">
             <h4 className="text-xs font-bold text-white mb-2">📊 Fundamentals</h4>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {[
@@ -502,44 +514,6 @@ function SetupCard({setup,eduMode,onCertify,certLoading,isTopPick}:{setup:any;ed
     </div>
   );
 }
-
-// ── Right educational panel ───────────────────────────────────────────────────
-function EduPanel({onClose}:{onClose:()=>void}){
-  const[active,setActive]=useState('setup');
-  const section=EDU_SECTIONS.find(s=>s.id===active)??EDU_SECTIONS[0];
-  return(
-    <div className="fixed top-0 right-0 h-full w-80 bg-surface-1 border-l border-border z-50 flex flex-col shadow-2xl">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-        <p className="text-sm font-bold text-white flex items-center gap-2"><BookOpen size={14} className="text-accent-green"/>Trading Guide</p>
-        <button onClick={onClose} className="text-muted hover:text-white transition-colors"><X size={16}/></button>
-      </div>
-      {/* Section tabs */}
-      <div className="flex flex-col gap-0.5 p-2 border-b border-border">
-        {EDU_SECTIONS.map(s=>(
-          <button key={s.id} onClick={()=>setActive(s.id)}
-            className={`text-left px-3 py-2 rounded-lg text-xs font-semibold transition-colors ${active===s.id?'bg-accent-green/10 text-accent-green':'text-secondary hover:text-white hover:bg-surface-2'}`}>
-            {s.label}
-          </button>
-        ))}
-      </div>
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        <p className="text-[11px] text-secondary leading-relaxed italic border-l-2 border-accent-green/30 pl-3">{section.intro}</p>
-        {section.items.map((item,i)=>(
-          <div key={i} className="bg-surface-2 rounded-xl p-3 border border-border space-y-1.5">
-            <p className="text-[11px] font-bold text-white">{item.t}</p>
-            <p className="text-[10px] text-secondary leading-relaxed">{item.d}</p>
-            <div className="bg-surface-3 rounded-lg p-2 border border-border">
-              <p className="text-[9px] text-accent-green font-semibold mb-0.5">Example</p>
-              <p className="text-[10px] text-muted leading-relaxed">{item.ex}</p>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 // ── Main page ─────────────────────────────────────────────────────────────────
 const RANGES=[
   {id:'small',label:'Small',sub:'< $25'},
@@ -549,6 +523,41 @@ const RANGES=[
   {id:'premium',label:'Premium',sub:'$401–$700'},
   {id:'elite',label:'Elite',sub:'$700+'},
 ];
+
+// ── Inline Guide Panel (right column) ────────────────────────────────────────
+function InlineGuidePanel({activeSection}:{activeSection:string}){
+  const section=EDU_SECTIONS.find(s=>s.id===activeSection)??EDU_SECTIONS[0];
+  return(
+    <div className="sticky top-4 space-y-3">
+      <div className="bg-surface-2 border border-border rounded-xl overflow-hidden">
+        <div className="px-3 py-2.5 border-b border-border bg-surface-3 flex items-center gap-2">
+          <BookOpen size={12} className="text-accent-green"/>
+          <p className="text-[11px] font-bold text-white">Trading Guide</p>
+          <span className="text-[9px] text-accent-green ml-auto bg-accent-green/10 px-1.5 py-0.5 rounded-full">{section.label}</span>
+        </div>
+        <div className="p-3 space-y-3 max-h-[80vh] overflow-y-auto">
+          <p className="text-[10px] text-secondary leading-relaxed italic border-l-2 border-accent-green/30 pl-2">{section.intro}</p>
+          {section.items.map((item,i)=>(
+            <div key={i} className="space-y-1">
+              <p className="text-[10px] font-bold text-white">{item.t}</p>
+              <p className="text-[10px] text-secondary leading-relaxed">{item.d}</p>
+              <div className="bg-surface-3 rounded-lg p-2 border border-border/60">
+                <p className="text-[8px] text-accent-green font-semibold mb-0.5">Example</p>
+                <p className="text-[9px] text-muted leading-relaxed">{item.ex}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+        {/* Section nav dots */}
+        <div className="flex justify-center gap-1.5 py-2 border-t border-border">
+          {EDU_SECTIONS.map(s=>(
+            <div key={s.id} title={s.label} className={`w-1.5 h-1.5 rounded-full transition-all ${s.id===activeSection?'bg-accent-green scale-125':'bg-border'}`}/>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function TradingAgentPage(){
   const[mode,setMode]=useState<'auto'|'manual'>('auto');
@@ -560,12 +569,29 @@ export default function TradingAgentPage(){
   const[loading,setLoading]=useState(false);
   const[error,setError]=useState<string|null>(null);
   const[eduMode,setEduMode]=useState(()=>{try{return localStorage.getItem('ziqron_edu')!=='off';}catch{return true;}});
-  const[showEduPanel,setShowEduPanel]=useState(false);
+  const[showGuide,setShowGuide]=useState(true);
+  const[activeSection,setActiveSection]=useState('setup');
   const[certLoading,setCertLoading]=useState<string|null>(null);
   const debounceRef=useRef<ReturnType<typeof setTimeout>|null>(null);
   const searchRef=useRef<HTMLDivElement>(null);
+  const mainRef=useRef<HTMLDivElement>(null);
 
   function toggleEdu(){const n=!eduMode;setEduMode(n);try{localStorage.setItem('ziqron_edu',n?'on':'off');}catch{}}
+
+  // Scroll tracking — observe section markers to update guide
+  useEffect(()=>{
+    const obs=new IntersectionObserver(entries=>{
+      entries.forEach(e=>{
+        if(e.isIntersecting){
+          const sec=e.target.getAttribute('data-guide-section');
+          if(sec)setActiveSection(sec);
+        }
+      });
+    },{threshold:0.4,rootMargin:'-10% 0px -40% 0px'});
+    const markers=document.querySelectorAll('[data-guide-section]');
+    markers.forEach(el=>obs.observe(el));
+    return()=>obs.disconnect();
+  },[result]); // re-run when result changes (new cards rendered)
 
   function handleManualInput(val:string){
     setManualTicker(val.toUpperCase());setShowSuggest(false);
@@ -603,27 +629,23 @@ export default function TradingAgentPage(){
   }
 
   return(
-    <div className="space-y-5 page-enter">
-      {/* Edu panel overlay */}
-      {showEduPanel&&<EduPanel onClose={()=>setShowEduPanel(false)}/>}
-      {showEduPanel&&<div className="fixed inset-0 bg-black/40 z-40" onClick={()=>setShowEduPanel(false)}/>}
-
+    <div className="page-enter">
       {/* Gharar disclaimer */}
-      <div className="bg-accent-green/5 border border-accent-green/20 rounded-xl p-4">
+      <div className="bg-accent-green/5 border border-accent-green/20 rounded-xl p-4 mb-5">
         <p className="text-xs font-bold text-accent-green mb-1">🕌 تَوَكَّلْ عَلَى اللَّه — Due Diligence is a Religious Obligation</p>
-        <p className="text-[11px] text-secondary leading-relaxed">Islam prohibits <strong className="text-white">gharar</strong> — excessive uncertainty or blind speculation. Every signal here is a tool for informed analysis, not a directive to buy. Verify halal status, understand what you own, and never invest money you cannot afford to lose.</p>
+        <p className="text-[11px] text-secondary leading-relaxed">Islam prohibits <strong className="text-white">gharar</strong> — excessive uncertainty or blind speculation. Every signal is a tool for informed analysis, not a directive to buy. Verify halal status and never invest money you cannot afford to lose.</p>
       </div>
 
       {/* Header */}
-      <div className="flex items-start justify-between flex-wrap gap-3">
+      <div className="flex items-start justify-between flex-wrap gap-3 mb-5">
         <div>
           <h1 className="text-2xl font-bold text-white flex items-center gap-2"><Zap size={20} className="text-accent-green"/>Short-Term Trading Agent</h1>
-          <p className="text-secondary text-sm mt-0.5">200+ halal stocks · live price · PDH/PDL · AI behavior · batched key move explanations</p>
+          <p className="text-secondary text-sm mt-0.5">200+ halal stocks · live price · PDH/PDL · AI behavior · parallel scan</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <a href="/learn" className="btn-secondary flex items-center gap-1.5 text-xs"><BookOpen size={13}/>Learning Hub</a>
-          <button onClick={()=>setShowEduPanel(p=>!p)} className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-semibold transition-all ${showEduPanel?'bg-accent-green/10 border-accent-green/30 text-accent-green':'border-border text-muted hover:text-white'}`}>
-            <PanelRight size={13}/>Trading Guide
+          <button onClick={()=>setShowGuide(g=>!g)} className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-semibold transition-all ${showGuide?'bg-accent-green/10 border-accent-green/30 text-accent-green':'border-border text-muted hover:text-white'}`}>
+            <PanelRight size={13}/>{showGuide?'Hide Guide':'Trading Guide'}
           </button>
           <button onClick={toggleEdu} className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-semibold transition-all ${eduMode?'bg-accent-green/10 border-accent-green/30 text-accent-green':'border-border text-muted hover:text-white'}`}>
             {eduMode?'📚 ON':'📚 OFF'}
@@ -631,97 +653,111 @@ export default function TradingAgentPage(){
         </div>
       </div>
 
-      {/* Controls */}
-      <div className="card p-4 space-y-4">
-        <div className="grid grid-cols-2 gap-2">
-          {[{id:'auto',l:'🔍 Auto Scan',s:'Scan 200+ halal universe'},{id:'manual',l:'🎯 Evaluate Ticker',s:'Enter any stock symbol'}].map(m=>(
-            <button key={m.id} onClick={()=>setMode(m.id as 'auto'|'manual')} className={`rounded-xl p-3 border text-left transition-all ${mode===m.id?'bg-accent-green/10 border-accent-green/30':'border-border hover:bg-surface-2'}`}>
-              <p className={`text-sm font-bold ${mode===m.id?'text-accent-green':'text-white'}`}>{m.l}</p>
-              <p className="text-[10px] text-muted">{m.s}</p>
-            </button>
-          ))}
-        </div>
+      {/* 2-column layout: left=main, right=guide */}
+      <div className={`${showGuide?'xl:grid xl:grid-cols-[1fr_300px] xl:gap-6':'block'}`}>
 
-        {mode==='manual'&&(
-          <div ref={searchRef} className="relative">
-            <div className="relative max-w-xs">
-              <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted"/>
-              <input value={manualTicker} onChange={e=>handleManualInput(e.target.value)}
-                onKeyDown={e=>e.key==='Enter'&&scan()} onFocus={()=>suggestions.length>0&&setShowSuggest(true)}
-                placeholder="HIMS, ALAB, NVO, CRDO…" className="input w-full pl-9 font-mono" autoComplete="off"/>
+        {/* ── LEFT: main content ── */}
+        <div ref={mainRef} className="space-y-5 min-w-0">
+
+          {/* Controls */}
+          <div className="card p-4 space-y-4" data-guide-section="setup">
+            <div className="grid grid-cols-2 gap-2">
+              {[{id:'auto',l:'🔍 Auto Scan',s:'Scan 200+ halal universe'},{id:'manual',l:'🎯 Evaluate Ticker',s:'Enter any stock symbol'}].map(m=>(
+                <button key={m.id} onClick={()=>setMode(m.id as 'auto'|'manual')} className={`rounded-xl p-3 border text-left transition-all ${mode===m.id?'bg-accent-green/10 border-accent-green/30':'border-border hover:bg-surface-2'}`}>
+                  <p className={`text-sm font-bold ${mode===m.id?'text-accent-green':'text-white'}`}>{m.l}</p>
+                  <p className="text-[10px] text-muted">{m.s}</p>
+                </button>
+              ))}
             </div>
-            {showSuggest&&suggestions.length>0&&(
-              <div className="absolute top-11 left-0 w-64 bg-surface-2 border border-border rounded-xl shadow-xl z-50 overflow-hidden">
-                {suggestions.slice(0,7).map((s:any)=>(
-                  <button key={s.ticker} onClick={()=>{setManualTicker(s.ticker);setShowSuggest(false);}} className="w-full flex items-center gap-2 px-3 py-2 hover:bg-surface-3 transition-colors text-left">
-                    <span className="text-xs font-mono font-bold text-accent-green w-14 shrink-0">{s.ticker}</span>
-                    <span className="text-[10px] text-secondary truncate">{s.name}</span>
+
+            {mode==='manual'&&(
+              <div ref={searchRef} className="relative">
+                <div className="relative max-w-xs">
+                  <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted"/>
+                  <input value={manualTicker} onChange={e=>handleManualInput(e.target.value)}
+                    onKeyDown={e=>e.key==='Enter'&&scan()} onFocus={()=>suggestions.length>0&&setShowSuggest(true)}
+                    placeholder="HIMS, ALAB, NVO, CRDO…" className="input w-full pl-9 font-mono" autoComplete="off"/>
+                </div>
+                {showSuggest&&suggestions.length>0&&(
+                  <div className="absolute top-11 left-0 w-64 bg-surface-2 border border-border rounded-xl shadow-xl z-50 overflow-hidden">
+                    {suggestions.slice(0,7).map((s:any)=>(
+                      <button key={s.ticker} onClick={()=>{setManualTicker(s.ticker);setShowSuggest(false);}} className="w-full flex items-center gap-2 px-3 py-2 hover:bg-surface-3 transition-colors text-left">
+                        <span className="text-xs font-mono font-bold text-accent-green w-14 shrink-0">{s.ticker}</span>
+                        <span className="text-[10px] text-secondary truncate">{s.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div>
+              <p className="text-[10px] text-muted uppercase tracking-wide mb-2 font-semibold">Price Range — entire universe scanned, filtered by actual price</p>
+              <div className="flex flex-wrap gap-2">
+                {RANGES.map(r=>(
+                  <button key={r.id} onClick={()=>setPriceRange(r.id)}
+                    className={`flex flex-col items-center px-3 py-2 rounded-xl border text-center transition-all ${priceRange===r.id?'bg-accent-green/10 border-accent-green/30':'border-border hover:bg-surface-2'}`}>
+                    <span className={`text-xs font-bold ${priceRange===r.id?'text-accent-green':'text-white'}`}>{r.label}</span>
+                    <span className="text-[9px] text-muted">{r.sub}</span>
                   </button>
                 ))}
               </div>
-            )}
-          </div>
-        )}
+            </div>
 
-        <div>
-          <p className="text-[10px] text-muted uppercase tracking-wide mb-2 font-semibold">Price Range — all universe stocks are scanned, filtered by actual price</p>
-          <div className="flex flex-wrap gap-2">
-            {RANGES.map(r=>(
-              <button key={r.id} onClick={()=>setPriceRange(r.id)}
-                className={`flex flex-col items-center px-3 py-2 rounded-xl border text-center transition-all ${priceRange===r.id?'bg-accent-green/10 border-accent-green/30':'border-border hover:bg-surface-2'}`}>
-                <span className={`text-xs font-bold ${priceRange===r.id?'text-accent-green':'text-white'}`}>{r.label}</span>
-                <span className="text-[9px] text-muted">{r.sub}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <button onClick={scan} disabled={loading} className="btn-primary w-full flex items-center justify-center gap-2">
-          {loading?<><Loader2 size={14} className="animate-spin"/>Scanning all universe stocks…</>:<><Zap size={14}/>{mode==='manual'&&manualTicker?`Evaluate ${manualTicker}`:`Scan ${RANGES.find(r=>r.id===priceRange)?.label??''} Range`}</>}
-        </button>
-      </div>
-
-      {error&&<div className="card border border-accent-red/20 bg-accent-red/5 p-4 text-sm text-accent-red">{error}</div>}
-
-      {result&&!loading&&(
-        <div className="space-y-4">
-          <div className="flex items-center justify-between flex-wrap gap-2 px-1">
-            {result.signal==='SETUPS_FOUND'?(
-              <><p className="text-sm font-semibold text-white">Found <span className="text-accent-green">{result.found}</span> setup{result.found!==1?'s':''} · <span className="text-accent-green">{result.scanned}</span> in price range</p>
-              <div className="flex items-center gap-2"><span className="text-[10px] text-muted">{new Date(result.generated_at).toLocaleTimeString()}</span><button onClick={scan} className="btn-ghost text-xs flex items-center gap-1"><RefreshCw size={11}/>Refresh</button></div></>
-            ):result.signal==='NO_SIGNAL'?(
-              <p className="text-sm text-accent-yellow">Full card shown — stock doesn't qualify right now</p>
-            ):(
-              <div className="w-full"><p className="text-sm font-semibold text-accent-yellow mb-1">🛡️ No setups today — capital preserved</p>
-              <p className="text-xs text-secondary">{result.reason}</p>
-              {result.reject_sample?.length>0&&<p className="text-[10px] text-muted mt-1.5">Sample rejections: {result.reject_sample.join(' · ')}</p>}</div>
-            )}
+            <button onClick={scan} disabled={loading} className="btn-primary w-full flex items-center justify-center gap-2">
+              {loading?<><Loader2 size={14} className="animate-spin"/>Scanning all {RANGES.find(r=>r.id===priceRange)?.label} stocks…</>:<><Zap size={14}/>{mode==='manual'&&manualTicker?`Evaluate ${manualTicker}`:`Scan ${RANGES.find(r=>r.id===priceRange)?.label??''} Range`}</>}
+            </button>
           </div>
 
-          {/* Pick One */}
-          {result.pickOne&&result.setups?.length>1&&(
-            <div className="bg-surface-2 border border-accent-green/25 rounded-xl p-4 flex items-start gap-3">
-              <Trophy size={16} className="text-accent-green shrink-0 mt-0.5"/>
-              <div>
-                <p className="text-xs font-bold text-accent-green mb-1">🏆 If You Can Only Pick One Today:</p>
-                <p className="text-xs text-secondary leading-relaxed">{result.pickOne}</p>
+          {error&&<div className="card border border-accent-red/20 bg-accent-red/5 p-4 text-sm text-accent-red">{error}</div>}
+
+          {result&&!loading&&(
+            <div className="space-y-4">
+              <div className="flex items-center justify-between flex-wrap gap-2 px-1">
+                {result.signal==='SETUPS_FOUND'?(
+                  <><p className="text-sm font-semibold text-white">Found <span className="text-accent-green">{result.found}</span> setup{result.found!==1?'s':''} · <span className="text-accent-green">{result.scanned}</span> in range</p>
+                  <div className="flex items-center gap-2"><span className="text-[10px] text-muted">{new Date(result.generated_at).toLocaleTimeString()}</span><button onClick={scan} className="btn-ghost text-xs flex items-center gap-1"><RefreshCw size={11}/>Refresh</button></div></>
+                ):result.signal==='NO_SIGNAL'?(
+                  <p className="text-sm text-accent-yellow">Full card shown — stock doesn't meet signal criteria right now</p>
+                ):(
+                  <div className="w-full"><p className="text-sm font-semibold text-accent-yellow mb-1">🛡️ No setups today — capital preserved</p>
+                  <p className="text-xs text-secondary">{result.reason}</p>
+                  {result.reject_sample?.length>0&&<p className="text-[10px] text-muted mt-1.5">Rejections: {result.reject_sample.join(' · ')}</p>}</div>
+                )}
               </div>
+
+              {result.pickOne&&result.setups?.length>1&&(
+                <div className="bg-surface-2 border border-accent-green/25 rounded-xl p-4 flex items-start gap-3">
+                  <Trophy size={16} className="text-accent-green shrink-0 mt-0.5"/>
+                  <div>
+                    <p className="text-xs font-bold text-accent-green mb-1">🏆 If You Can Only Pick One Today:</p>
+                    <p className="text-xs text-secondary leading-relaxed">{result.pickOne}</p>
+                  </div>
+                </div>
+              )}
+
+              {result.setups?.map((s:any,i:number)=>(
+                <SetupCard key={s.ticker} setup={s} eduMode={eduMode} onCertify={certify} certLoading={certLoading} isTopPick={i===0&&result.setups.length>1&&!s.no_signal}/>
+              ))}
             </div>
           )}
 
-          {result.setups?.map((s:any,i:number)=>(
-            <SetupCard key={s.ticker} setup={s} eduMode={eduMode} onCertify={certify} certLoading={certLoading} isTopPick={i===0&&result.setups.length>1&&!s.no_signal}/>
-          ))}
+          {!result&&!loading&&(
+            <div className="flex flex-col items-center py-20 text-center">
+              <Zap size={36} className="text-muted mb-3"/>
+              <h2 className="text-base font-semibold text-white mb-1">Select a range and run the scan</h2>
+              <p className="text-xs text-secondary max-w-sm">All 200+ halal-screened stocks scanned — filtered by actual current Alpaca SIP price. The Trading Guide on the right explains every section as you scroll.</p>
+            </div>
+          )}
         </div>
-      )}
 
-      {!result&&!loading&&(
-        <div className="flex flex-col items-center py-20 text-center">
-          <Zap size={36} className="text-muted mb-3"/>
-          <h2 className="text-base font-semibold text-white mb-1">Select a range and run the scan</h2>
-          <p className="text-xs text-secondary max-w-sm">All 200+ halal-certified stocks are scanned regardless of tier — your selected price range filters results by actual current market price from Alpaca SIP.</p>
-        </div>
-      )}
+        {/* ── RIGHT: inline guide (desktop only) ── */}
+        {showGuide&&(
+          <div className="hidden xl:block">
+            <InlineGuidePanel activeSection={activeSection}/>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
