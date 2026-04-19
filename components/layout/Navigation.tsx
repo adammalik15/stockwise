@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard, Star, Briefcase, BarChart2,
-  Compass, LogOut, TrendingUp, Menu, X, Settings,
+  LogOut, TrendingUp, Menu, X, Settings,
   Target, Newspaper, CalendarDays, Zap, LineChart, BookOpen,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
@@ -33,7 +33,6 @@ const NAV_GROUPS = [
   {
     label: 'Explore',
     items: [
-      { href: '/discover',           label: 'Discover',     icon: Compass         },
       { href: '/learn',              label: 'Learn',        icon: BookOpen        },
       { href: '/settings',           label: 'Settings',     icon: Settings        },
     ],

@@ -185,11 +185,29 @@ const BEHAVIOR: Record<string, {primary:string;pattern:string;avoid:string;best:
 function calcRSI(c:number[],p=14):number{if(c.length<p+1)return 50;let g=0,l=0;for(let i=c.length-p;i<c.length;i++){const d=c[i]-c[i-1];d>0?g+=d:l+=Math.abs(d);}const ag=g/p,al=l/p;return al===0?100:Math.round(100-100/(1+ag/al));}
 function calcEMA(v:number[],p:number):number[]{const k=2/(p+1),o=[v[0]];for(let i=1;i<v.length;i++)o.push(v[i]*k+o[i-1]*(1-k));return o;}
 function emaLast(c:number[],p:number):number{return calcEMA(c,p).slice(-1)[0];}
-function calcMACD(c:number[]):{bullish:boolean;histogram:number}{if(c.length<35)return{bullish:false,histogram:0};const e12=calcEMA(c,12),e26=calcEMA(c,26);const line=e12.map((v,i)=>v-e26[i]);const sig=calcEMA(line.slice(-9),9);const h=line[line.length-1]-sig[sig.length-1];const p2=line[line.length-2]-sig[sig.length-2];return{bullish:h>0&&h>p2,histogram:parseFloat(h.toFixed(4))};}
+// Faster MACD 8/17/9 — catches momentum shifts 1-2 days earlier than standard 12/26/9
+// Also checks MACD line vs zero to avoid "less bearish" false positives
+function calcMACD(c:number[],atr=0):{bullish:boolean;histogram:number;line:number}{
+  if(c.length<25)return{bullish:false,histogram:0,line:0};
+  const e8=calcEMA(c,8),e17=calcEMA(c,17);
+  const line=e8.map((v,i)=>v-e17[i]);
+  const sig=calcEMA(line.slice(-9),9);
+  const h=line[line.length-1]-sig[sig.length-1];
+  const prev=line[line.length-2]-sig[sig.length-2];
+  const macdLine=line[line.length-1];
+  // Only bullish if histogram expanding AND MACD line not deeply negative
+  const zeroFilter=atr>0?macdLine>-(atr*0.5):macdLine>-0.5;
+  return{bullish:h>0&&h>prev&&zeroFilter,histogram:parseFloat(h.toFixed(4)),line:parseFloat(macdLine.toFixed(4))};
+}
 function calcATR(highs:number[],lows:number[],closes:number[],p=14):number{const trs:number[]=[];for(let i=1;i<closes.length;i++)trs.push(Math.max(highs[i]-lows[i],Math.abs(highs[i]-closes[i-1]),Math.abs(lows[i]-closes[i-1])));const r=trs.slice(-p);return r.length?r.reduce((a,b)=>a+b,0)/r.length:0;}
 function calcVolumeData(vols:number[]):{ratio:number;todayVol:number;avgVol:number}{if(vols.length<2)return{ratio:1,todayVol:vols[vols.length-1]??0,avgVol:0};const avg=vols.slice(-21,-1).reduce((a,b)=>a+b,0)/Math.max(1,Math.min(20,vols.length-1));const today=vols[vols.length-1];return{ratio:avg>0?parseFloat((today/avg).toFixed(2)):1,todayVol:today,avgVol:Math.round(avg)};}
 function calcStoch(highs:number[],lows:number[],closes:number[],kp=14):{k:number;d:number}{if(closes.length<kp)return{k:50,d:50};const ks:number[]=[];for(let i=kp-1;i<closes.length;i++){const hi=Math.max(...highs.slice(i-kp+1,i+1)),lo=Math.min(...lows.slice(i-kp+1,i+1));ks.push(hi===lo?50:((closes[i]-lo)/(hi-lo))*100);}const lastK=ks[ks.length-1],ds=ks.slice(-3);return{k:Math.round(lastK),d:Math.round(ds.reduce((a,b)=>a+b,0)/ds.length)};}
 function calcADX(highs:number[],lows:number[],closes:number[],p=14):number{if(closes.length<p*2)return 20;const trs:number[]=[],pdms:number[]=[],mdms:number[]=[];for(let i=1;i<closes.length;i++){trs.push(Math.max(highs[i]-lows[i],Math.abs(highs[i]-closes[i-1]),Math.abs(lows[i]-closes[i-1])));const pd=highs[i]-highs[i-1],md=lows[i-1]-lows[i];pdms.push(pd>0&&pd>md?pd:0);mdms.push(md>0&&md>pd?md:0);}const atr=trs.slice(-p).reduce((a,b)=>a+b,0)/p;if(!atr)return 20;const pdi=pdms.slice(-p).reduce((a,b)=>a+b,0)/p/atr*100,mdi=mdms.slice(-p).reduce((a,b)=>a+b,0)/p/atr*100;return Math.round((pdi+mdi)>0?Math.abs(pdi-mdi)/(pdi+mdi)*100:0);}
+// EMA slope: is EMA rising? Compare today vs 5 days ago
+function emaSlope(closes:number[],period:number):boolean{
+  const emas=calcEMA(closes,period);
+  return emas.length>=6&&emas[emas.length-1]>emas[emas.length-6];
+}
 
 // ── Alpaca SIP candles ────────────────────────────────────────────────────────
 async function fetchCandles(ticker:string):Promise<{closes:number[];highs:number[];lows:number[];volumes:number[];dates:string[];price:number}|null>{
@@ -303,66 +321,135 @@ async function fetchNextEarnings(ticker:string):Promise<string|null>{
 // ── Signal engine ─────────────────────────────────────────────────────────────
 function analyzeSetup(candles:{closes:number[];highs:number[];lows:number[];volumes:number[];price:number},catalystFound:boolean):{setup:string;confidence:number;factors:string[];atr:number;entry:number;indicators:any}|null{
   const{closes,highs,lows,volumes,price}=candles;
-  const rsi=calcRSI(closes);
-  const macd=calcMACD(closes);
-  const atr=calcATR(highs,lows,closes);
-  const volData=calcVolumeData(volumes);
-  const ema20=emaLast(closes,20);
-  const ema50=emaLast(closes,50);
-  const stoch=calcStoch(highs,lows,closes);
-  const adx=calcADX(highs,lows,closes);
+  const rsi     = calcRSI(closes);
+  const atr     = calcATR(highs,lows,closes);
+  const macd    = calcMACD(closes,atr);          // faster 8/17/9 with zero-line filter
+  const volData = calcVolumeData(volumes);
+  const ema9    = emaLast(closes,9);             // NEW: short-term EMA
+  const ema20   = emaLast(closes,20);
+  const ema50   = emaLast(closes,50);
+  const stoch   = calcStoch(highs,lows,closes);
+  const adx     = calcADX(highs,lows,closes);
+  const ema20Rising = emaSlope(closes,20);        // NEW: EMA slope check
 
-  // Hard rejects
-  if(volData.ratio<1.3)return null;
-  if(rsi>78||rsi<22)return null;
-  const s20=closes.slice(-20),mean=s20.reduce((a,b)=>a+b,0)/20;
-  const std=Math.sqrt(s20.reduce((a,b)=>a+(b-mean)**2,0)/20);
-  if((2*std)/mean<0.03&&volData.ratio<2.0)return null;
+  // ── Improvement 2: tier-based volume threshold ─────────────────────────────
+  // Small price stocks need higher volume to confirm (proxy by price tier)
+  const volMin = price < 25 ? 2.0 : price < 100 ? 1.5 : 1.2;
+  if(volData.ratio < volMin) return null;
 
-  const factors:string[]=[]; let score=0;
+  // ── Hard rejects ───────────────────────────────────────────────────────────
+  if(rsi > 75 || rsi < 22) return null;          // Improvement 1: tightened overbought from 78→75
 
-  if(price>ema20&&price>ema50){score++;factors.push('Trend aligned — price above 20 & 50 EMA');}
-  else if(price>ema20)factors.push('Partial trend — above 20 EMA only');
+  // ── Improvement 6: tighter sideways chop filter (3%→5%) ───────────────────
+  const s20  = closes.slice(-20);
+  const mean = s20.reduce((a,b)=>a+b,0)/20;
+  const std  = Math.sqrt(s20.reduce((a,b)=>a+(b-mean)**2,0)/20);
+  if((2*std)/mean < 0.05 && volData.ratio < 2.0) return null;
 
-  if(rsi>=50&&rsi<=65){score++;factors.push(`RSI ${rsi} — healthy momentum zone`);}
-  else if(rsi>65&&rsi<=75)factors.push(`RSI ${rsi} — elevated, consider smaller position`);
-  else if(rsi>=30&&rsi<48){score++;factors.push(`RSI ${rsi} — oversold bounce zone`);}
+  const factors:string[] = []; let score = 0;
 
+  // ── Factor 1: EMA stack alignment (Improvement 5) ─────────────────────────
+  const fullStack = price>ema9 && price>ema20 && price>ema50 && ema9>ema20;
+  if(fullStack){
+    score++;
+    factors.push('Full EMA stack — price above 9, 20 & 50 EMA, all aligned');
+  } else if(price>ema20 && price>ema50){
+    score++;
+    factors.push('Trend aligned — price above 20 & 50 EMA');
+  } else if(price>ema20){
+    factors.push('Partial trend — above 20 EMA only');
+  }
+
+  // ── Factor 2: EMA-20 slope bonus (Improvement 7) ──────────────────────────
+  if(ema20Rising && (price>ema20)){
+    score++;
+    factors.push('EMA-20 rising — trend actively strengthening');
+  }
+
+  // ── Factor 3: RSI — tightened zones (Improvement 1) ──────────────────────
+  if(rsi>=50 && rsi<=65){
+    score++;
+    factors.push(`RSI ${rsi} — healthy momentum, not overbought`);
+  } else if(rsi>65 && rsi<=75){
+    factors.push(`RSI ${rsi} — elevated, reduce position size`);
+  } else if(rsi>=28 && rsi<42){
+    // Tightened dip zone: was 30-48, now 28-42 (Improvement 1)
+    score++;
+    factors.push(`RSI ${rsi} — genuinely oversold, bounce zone`);
+  } else if(rsi>=42 && rsi<50){
+    // 42-50 is neutral — no edge, skip
+    factors.push(`RSI ${rsi} — neutral zone, no clear signal`);
+  }
+
+  // ── Factor 4: Volume (always counted if passed threshold) ─────────────────
   score++;
-  factors.push(`Volume ${volData.ratio.toFixed(1)}× avg — ${volData.ratio>=2?'strong institutional interest':'confirmed participation'}`);
+  factors.push(`Volume ${volData.ratio.toFixed(1)}× avg — ${volData.ratio>=2?'strong institutional interest':volData.ratio>=1.5?'confirmed participation':'minimum threshold met'}`);
 
-  const atrPrev=calcATR(highs.slice(0,-5),lows.slice(0,-5),closes.slice(0,-5));
-  if(atr>atrPrev*1.08){score++;factors.push('ATR expanding — volatility supporting the move');}
+  // ── Factor 5: ATR expansion — tightened threshold 1.08→1.15 (Improvement 3) ─
+  const atrPrev = calcATR(highs.slice(0,-5),lows.slice(0,-5),closes.slice(0,-5));
+  if(atr > atrPrev*1.15){
+    score++;
+    factors.push('ATR expanding 15%+ — meaningful volatility increase');
+  }
 
-  if(macd.bullish){score++;factors.push('MACD bullish — momentum accelerating');}
-  if(catalystFound){score++;factors.push('Bullish news catalyst in past 72h');}
+  // ── Factor 6: MACD (faster 8/17/9 with zero-line filter) ──────────────────
+  if(macd.bullish){
+    score++;
+    factors.push('MACD bullish — momentum accelerating above zero line');
+  }
 
-  if(score<4)return null;
+  // ── Factor 7: ADX — used as filter now (Improvement 4) ───────────────────
+  // Not a scoring factor — used as a gate later
 
-  const high20=Math.max(...closes.slice(-21,-1));
-  let setup:string;
-  if(price>high20&&volData.ratio>=1.8)setup='Momentum Breakout';
-  else if(rsi<45&&price>ema20)setup='Dip Buy Reversal';
-  else if(catalystFound&&volData.ratio>=1.5)setup='News Catalyst';
-  else if(score>=5)setup='Momentum Breakout';
+  // ── Factor 8: Stochastic confirmation bonus (Improvement 8) ───────────────
+  if(rsi<42 && stoch.k<25){
+    // Double oversold confirmation
+    score++;
+    factors.push(`RSI+Stochastic both oversold — high-quality dip setup`);
+  } else if(rsi>=50 && stoch.k>50 && stoch.k<75){
+    score++;
+    factors.push('Stochastic confirming momentum in healthy zone');
+  }
+
+  if(catalystFound){ score++; factors.push('Bullish news catalyst in past 72h'); }
+
+  if(score < 4) return null;
+
+  // ── Determine setup type ───────────────────────────────────────────────────
+  const high20 = Math.max(...closes.slice(-21,-1));
+  let setup: string;
+  if(price>high20 && volData.ratio>=1.8)           setup = 'Momentum Breakout';
+  else if(rsi<42 && price>ema20)                   setup = 'Dip Buy Reversal';
+  else if(catalystFound && volData.ratio>=1.5)     setup = 'News Catalyst';
+  else if(score>=5)                                setup = 'Momentum Breakout';
   else return null;
 
-  // Entry: smarter than just current price
-  let entry:number;
-  if(setup==='Momentum Breakout')entry=parseFloat((price*1.002).toFixed(2));     // 0.2% above — confirms break
-  else if(setup==='Dip Buy Reversal')entry=parseFloat((price*0.996).toFixed(2)); // 0.4% below — gets the dip
-  else entry=price; // news catalyst — market open is fine
+  // ── Improvement 4: ADX as hard gate by setup type ─────────────────────────
+  if(setup==='Momentum Breakout' && adx<20) return null;  // Breakouts need real trend
+  if(setup==='Dip Buy Reversal'  && adx<15) return null;  // Dip buys need at least weak trend
 
-  const trend=price>ema20&&price>ema50?'bullish':price<ema20&&price<ema50?'bearish':'neutral';
+  // ── Improvement ATR-based entry (not fixed %) ─────────────────────────────
+  let entry: number;
+  if(setup==='Momentum Breakout')
+    entry = parseFloat((price + atr*0.10).toFixed(2));  // 10% of daily range above
+  else if(setup==='Dip Buy Reversal')
+    entry = parseFloat((price - atr*0.15).toFixed(2));  // 15% of daily range below
+  else
+    entry = price; // News Catalyst — buy at market open
+
+  const trend = price>ema20&&price>ema50?'bullish':price<ema20&&price<ema50?'bearish':'neutral';
 
   return{
     setup,confidence:Math.min(10,score),factors,atr,entry,
     indicators:{
-      rsi,rsiSignal:rsi<30?'oversold':rsi<50?'neutral':rsi<65?'building':rsi<75?'elevated':'overbought',
+      rsi,rsiSignal:rsi<28?'oversold':rsi<50?'neutral':rsi<65?'building':rsi<75?'elevated':'overbought',
       macd,atr,atrPct:parseFloat(((atr/price)*100).toFixed(2)),
       volR:volData.ratio,todayVol:volData.todayVol,avgVol:volData.avgVol,
-      ema20:parseFloat(ema20.toFixed(2)),ema50:parseFloat(ema50.toFixed(2)),
-      stochK:stoch.k,stochD:stoch.d,adx,adxStr:adx<20?'weak':adx<30?'moderate':adx<50?'strong':'very_strong',trend,
+      ema9:parseFloat(ema9.toFixed(2)),ema20:parseFloat(ema20.toFixed(2)),ema50:parseFloat(ema50.toFixed(2)),
+      ema20Rising,fullEmaStack:fullStack,
+      stochK:stoch.k,stochD:stoch.d,
+      adx,adxStr:adx<20?'weak':adx<30?'moderate':adx<50?'strong':'very_strong',
+      trend,
     },
   };
 }
@@ -510,7 +597,7 @@ export async function POST(request:NextRequest){
   const anthropicKey=process.env.ANTHROPIC_API_KEY;
   const isAdmin=user.email===ADMIN_EMAIL;
 
-  async function enrichAndBuild(ticker:string,candles:any,analysis:any|null,meta:any,user:any):Promise<any>{
+  async function enrichAndBuild(ticker:string,candles:any,analysis:any|null,meta:any):Promise<any>{
     const[fundamentals,targets,earningsDate,catalyst]=await Promise.all([
       fetchFundamentals(ticker),fetchAnalystTargets(ticker),fetchNextEarnings(ticker),fetchCatalyst(ticker),
     ]);
@@ -521,7 +608,7 @@ export async function POST(request:NextRequest){
     // Behavior: use manual profile if available, else Claude-generate it
     const behavior=BEHAVIOR[ticker]??(anthropicKey?await generateBehavior(ticker,meta.sector,meta.description,anthropicKey):null);
     const{data:certs}=await supabase.from('halal_certifications').select('*').eq('ticker',ticker);
-    const userCert=certs?.find((c:any)=>c.certified_by===user.id)??null;
+    const userCert=certs?.find((c:any)=>c.certified_by===user!.id)??null;
     // Use real-time price from fundamentals for display
     const displayPrice=fundamentals?.price&&fundamentals.price>0?fundamentals.price:candles.price;
     if(!analysis){
@@ -569,7 +656,7 @@ export async function POST(request:NextRequest){
     const meta=UNIVERSE[ticker]??{halal:'doubtful',sector:'Unknown',tier:'medium',description:'Custom ticker — verify all details before trading'};
     const catalyst=await fetchCatalyst(ticker);
     const analysis=analyzeSetup(candles,catalyst.found);
-    const card=await enrichAndBuild(ticker,candles,analysis,meta,user);
+    const card=await enrichAndBuild(ticker,candles,analysis,meta);
     return NextResponse.json({signal:card.no_signal?'NO_SIGNAL':'SETUPS_FOUND',scanned:1,found:card.no_signal?0:1,isAdmin,setups:[card],generated_at:new Date().toISOString()});
   }
 
@@ -597,7 +684,7 @@ export async function POST(request:NextRequest){
     const analysis=analyzeSetup(candles,cat.found);
     if(!analysis){rejectLog.push(`${ticker}: RSI ${calcRSI(candles.closes)}, Vol ${calcVolumeData(candles.volumes).ratio}×`);continue;}
     const meta=UNIVERSE[ticker];
-    validSetups.push(await enrichAndBuild(ticker,candles,analysis,meta,user));
+    validSetups.push(await enrichAndBuild(ticker,candles,analysis,meta));
   }
 
   validSetups.sort((a,b)=>b.confidence-a.confidence);

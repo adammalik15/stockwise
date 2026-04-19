@@ -224,6 +224,10 @@ function SetupCard({setup,eduMode,onCertify,certLoading,isTopPick}:{setup:any;ed
               ticker={setup.ticker}
               initialData={chartData}
               currentPrice={setup.price}
+              defaultPeriod="3mo"
+              keyMoves={(setup.keyMoves??[]).map((m:any)=>({date:m.date,pct:m.pct,direction:m.direction,reason:m.reason}))}
+              pdh={levels?.pdh}
+              pdl={levels?.pdl}
             />
           </div>
         )}
@@ -371,8 +375,11 @@ function SetupCard({setup,eduMode,onCertify,certLoading,isTopPick}:{setup:any;ed
               <div className="grid grid-cols-3 gap-2 mb-2">
                 {[
                   {l:'MACD',v:ind.macd?.bullish?'▲ Bullish':'▼ Bearish',c:ind.macd?.bullish?'text-accent-green':'text-accent-red',tip:'macd',edu:eduMode?EDU.macd(ind.macd):null},
+                  {l:'EMA-9',v:`$${ind.ema9??'—'}`,c:setup.price>(ind.ema9??0)?'text-accent-green':'text-accent-red',tip:'ema20',edu:null},
                   {l:'EMA-20',v:`$${ind.ema20}`,c:setup.price>ind.ema20?'text-accent-green':'text-accent-red',tip:'ema20',edu:null},
                   {l:'EMA-50',v:`$${ind.ema50}`,c:setup.price>ind.ema50?'text-accent-green':'text-accent-red',tip:'ema50',edu:null},
+                  {l:'EMA-20 slope',v:ind.ema20Rising?'▲ Rising':'▼ Flat/falling',c:ind.ema20Rising?'text-accent-green':'text-accent-yellow',tip:'ema20',edu:null},
+                  {l:'EMA stack',v:ind.fullEmaStack?'✓ Full align':'Partial',c:ind.fullEmaStack?'text-accent-green':'text-muted',tip:'ema20',edu:null},
                 ].map(r=>(
                   <div key={r.l} className="bg-surface-2 rounded-xl p-2.5 border border-border">
                     <p className="text-[9px] text-muted">{r.l}<T id={r.tip}/></p>
