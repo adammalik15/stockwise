@@ -19,7 +19,7 @@ export async function GET() {
 
   try {
     const res = await fetch(
-      'https://data.alpaca.markets/v2/stocks/AAPL/bars?timeframe=1Day&limit=3&feed=sip&sort=desc',
+      'https://data.alpaca.markets/v2/stocks/AAPL/bars?timeframe=1Day&limit=3&feed=iex&sort=desc',
       {
         headers: {
           'APCA-API-KEY-ID':     key,

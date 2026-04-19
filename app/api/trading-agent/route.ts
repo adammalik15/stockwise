@@ -154,7 +154,6 @@ const UNIVERSE: Record<string, UniverseEntry> = {
   ASML: { halal:'high',    sector:'Semiconductors',   tier:'premium',description:'EUV lithography machines — only supplier globally' },
   NVO:  { halal:'high',    sector:'Pharma',           tier:'premium',description:'Novo Nordisk — Ozempic and Wegovy GLP-1 global leader' },
   INTU: { halal:'high',    sector:'SaaS',             tier:'premium',description:'TurboTax, QuickBooks, Credit Karma — financial software' },
-  MA:   { halal:'high',    sector:'Payments',         tier:'premium',description:'Mastercard — payment network' },
   // ── ELITE ($701+) ─────────────────────────────────────────────────────────
   LRCX: { halal:'high',    sector:'Semiconductors',   tier:'elite',  description:'Lam Research — etch and deposition semiconductor equipment' },
   COST: { halal:'high',    sector:'Retail',           tier:'elite',  description:'Costco — membership warehouse with ultra-loyal customers' },
@@ -230,7 +229,7 @@ function emaSlope(closes:number[],period:number):boolean{
 async function fetchCandles(ticker:string):Promise<{closes:number[];highs:number[];lows:number[];volumes:number[];dates:string[];price:number}|null>{
   if(!ALPACA_KEY||!ALPACA_SECRET)return null;
   try{
-    const res=await fetch(`${ALPACA_BASE}/${ticker}/bars?timeframe=1Day&limit=90&feed=sip&sort=desc`,{
+    const res=await fetch(`${ALPACA_BASE}/${ticker}/bars?timeframe=1Day&limit=90&feed=iex&sort=desc`,{
       headers:{'APCA-API-KEY-ID':ALPACA_KEY,'APCA-API-SECRET-KEY':ALPACA_SECRET},
       signal:AbortSignal.timeout(8000),
     });
@@ -648,13 +647,13 @@ export async function POST(request:NextRequest){
   const supabase=await createClient();
   const{data:{user}}=await supabase.auth.getUser();
   if(!user)return NextResponse.json({error:'Unauthorized'},{status:401});
-  const userId = user.id;
+  const authenticatedUser = user;
   if(!ALPACA_KEY||!ALPACA_SECRET)return NextResponse.json({signal:'NO_TRADE',reason:'ALPACA_KEY_ID and ALPACA_SECRET not configured in Vercel.',scanned:0,setups:[]});
 
   const body=await request.json().catch(()=>({}));
   const{price_range='medium',capital=10000,specific_ticker=null}=body;
   const anthropicKey=process.env.ANTHROPIC_API_KEY;
-  const isAdmin=user.email===ADMIN_EMAIL;
+  const isAdmin=authenticatedUser?.email===ADMIN_EMAIL;
 
   async function enrichAndBuild(ticker:string,candles:any,analysis:any|null,meta:any):Promise<any>{
     const[fundamentals,targets,earningsDate,catalyst]=await Promise.all([
@@ -670,7 +669,7 @@ export async function POST(request:NextRequest){
     // Behavior: use manual profile if available, else Claude-generate it
     const behavior=BEHAVIOR[ticker]??(anthropicKey?await generateBehavior(ticker,meta.sector,meta.description,anthropicKey):null);
     const{data:certs}=await supabase.from('halal_certifications').select('*').eq('ticker',ticker);
-    const userCert=certs?.find((c:any)=>c.certified_by===userId)??null;
+    const userCert=certs?.find((c:any)=>c.certified_by===authenticatedUser.id)??null;
     // Use real-time price from fundamentals for display
     const displayPrice=fundamentals?.price&&fundamentals.price>0?fundamentals.price:candles.price;
     if(!analysis){

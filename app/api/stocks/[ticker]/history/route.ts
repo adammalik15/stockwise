@@ -58,7 +58,7 @@ export async function GET(
     const start = new Date(Date.now() - days * 86400000).toISOString().split('T')[0];
 
     const res = await fetch(
-      `${ALPACA_BASE}/${upper}/bars?timeframe=1Day&limit=1000&feed=sip&start=${start}&sort=asc`,
+      `${ALPACA_BASE}/${upper}/bars?timeframe=1Day&limit=1000&feed=iex&start=${start}&sort=asc`,
       {
         headers: {
           'APCA-API-KEY-ID':     ALPACA_KEY,
