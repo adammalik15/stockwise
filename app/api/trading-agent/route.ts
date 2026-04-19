@@ -39,7 +39,6 @@ const UNIVERSE: Record<string, UniverseEntry> = {
   PLUG: { halal:'high',    sector:'Clean Energy',     tier:'small',  description:'Hydrogen fuel cell systems' },
   JOBY: { halal:'high',    sector:'Aviation',         tier:'small',  description:'Electric air taxi developer' },
   SOUN: { halal:'high',    sector:'AI',               tier:'small',  description:'AI-powered voice technology platform' },
-  HIMS: { halal:'high',    sector:'Healthcare',       tier:'small',  description:'Telehealth platform — hair loss, weight, wellness' },
   ACHR: { halal:'high',    sector:'Aviation',         tier:'small',  description:'Electric vertical takeoff aircraft' },
   ASTS: { halal:'high',    sector:'Space',            tier:'small',  description:'Space-based broadband cellular network' },
   RXRX: { halal:'high',    sector:'BioTech',          tier:'small',  description:'AI-driven drug discovery platform' },
@@ -53,14 +52,12 @@ const UNIVERSE: Record<string, UniverseEntry> = {
   VETO: { halal:'high',    sector:'Healthcare',       tier:'small',  description:'Healthcare innovation company' },
   SRPT: { halal:'high',    sector:'BioTech',          tier:'small',  description:'Rare disease gene therapy biotech' },
   RIOT: { halal:'doubtful',sector:'Crypto Mining',    tier:'small',  description:'Bitcoin mining — halal status debated among scholars' },
-  PATH: { halal:'high',    sector:'Automation',       tier:'small',  description:'Robotic process automation (RPA) software' },
   ANNA: { halal:'high',    sector:'Healthcare AI',    tier:'small',  description:'AI-powered healthcare analytics' },
   ANGO: { halal:'high',    sector:'Medical Devices',  tier:'small',  description:'Vascular and oncology medical devices' },
   VELO: { halal:'high',    sector:'Healthcare',       tier:'small',  description:'Pharmaceutical development company' },
   SYM:  { halal:'high',    sector:'Robotics',         tier:'small',  description:'AI-powered warehouse robotics' },
   ELVA: { halal:'high',    sector:'EV',               tier:'small',  description:'Electric vehicle charging infrastructure' },
   FLNC: { halal:'high',    sector:'Clean Energy',     tier:'small',  description:'Fluence Energy — grid-scale energy storage' },
-  NBIS: { halal:'high',    sector:'Semiconductors',   tier:'small',  description:'Nebius — AI cloud infrastructure' },
   SMTC: { halal:'high',    sector:'Semiconductors',   tier:'small',  description:'Semtech — IoT and wireless semiconductors' },
   ETON: { halal:'high',    sector:'Pharma',           tier:'small',  description:'Specialty pharmaceutical company' },
   KIDS: { halal:'high',    sector:'Healthcare',       tier:'small',  description:'OrthoPediatrics — pediatric orthopedic devices' },
@@ -79,9 +76,11 @@ const UNIVERSE: Record<string, UniverseEntry> = {
   AXGN: { halal:'high',    sector:'Medical Devices',  tier:'small',  description:'Axogen — surgical nerve repair devices' },
   AAOI: { halal:'high',    sector:'Networking',       tier:'small',  description:'Applied Optoelectronics — optical networking' },
   CPNG: { halal:'high',    sector:'E-Commerce',       tier:'small',  description:'Coupang — South Korean e-commerce giant' },
+  NBIS: { halal:'high',    sector:'Semiconductors',   tier:'small',  description:'Nebius — AI cloud infrastructure' },
   // ── MEDIUM ($26–$100) ──────────────────────────────────────────────────────
+  HIMS: { halal:'high',    sector:'Healthcare',       tier:'medium', description:'Telehealth platform — hair loss, weight, wellness' },
+  PATH: { halal:'high',    sector:'Automation',       tier:'medium', description:'Robotic process automation (RPA) software' },
   AMD:  { halal:'high',    sector:'Semiconductors',   tier:'medium', description:'CPUs, GPUs, and AI chips — competing with NVDA in data centers' },
-  QCOM: { halal:'high',    sector:'Semiconductors',   tier:'medium', description:'Mobile chipsets and wireless technology licensing' },
   MU:   { halal:'high',    sector:'Semiconductors',   tier:'medium', description:'Memory and storage chips (DRAM, NAND)' },
   SHOP: { halal:'high',    sector:'E-Commerce',       tier:'medium', description:'E-commerce platform for businesses worldwide' },
   NET:  { halal:'high',    sector:'Cloud',            tier:'medium', description:'Global network — CDN, security, DNS' },
@@ -99,6 +98,7 @@ const UNIVERSE: Record<string, UniverseEntry> = {
   TWLO: { halal:'high',    sector:'Cloud',            tier:'medium', description:'Cloud communications APIs — SMS, voice, email' },
   ZETA: { halal:'doubtful',sector:'Ad Tech',          tier:'medium', description:'Data-driven marketing technology platform' },
   RBRK: { halal:'high',    sector:'Cybersecurity',    tier:'medium', description:'Zero-trust data security and ransomware protection' },
+  MRK:  { halal:'high',    sector:'Pharma',           tier:'medium', description:'Merck — oncology, vaccines, and specialty pharma' },
   WDC:  { halal:'high',    sector:'Storage',          tier:'medium', description:'Western Digital — hard drives and flash storage' },
   MRVL: { halal:'high',    sector:'Semiconductors',   tier:'medium', description:'Marvell — data infrastructure chips and AI networking' },
   COHR: { halal:'high',    sector:'Photonics',        tier:'medium', description:'Coherent — optical components for AI data centers' },
@@ -122,44 +122,42 @@ const UNIVERSE: Record<string, UniverseEntry> = {
   CSX:  { halal:'high',    sector:'Transportation',   tier:'medium', description:'CSX — freight railroad across eastern US' },
   MIRM: { halal:'high',    sector:'Pharma',           tier:'medium', description:'Mirum Pharmaceuticals — rare liver diseases' },
   VRT:  { halal:'high',    sector:'Power Mgmt',       tier:'medium', description:'Vertiv — power and cooling for data centers' },
+  ANET: { halal:'high',    sector:'Networking',       tier:'medium', description:'Arista Networks — cloud networking switches' },
+  QCOM: { halal:'high',    sector:'Semiconductors',   tier:'medium', description:'Mobile chipsets and wireless technology licensing' },
   // ── LARGE ($101–$200) ──────────────────────────────────────────────────────
   NVDA: { halal:'high',    sector:'Semiconductors',   tier:'large',  description:'Dominant AI GPU manufacturer — powers data centers worldwide' },
-  MSFT: { halal:'high',    sector:'Cloud/AI',         tier:'large',  description:'Azure cloud, Office 365, and OpenAI partnership' },
   AAPL: { halal:'medium',  sector:'Consumer Tech',    tier:'large',  description:'iPhone, Mac, services ecosystem — largest market cap' },
-  LLY:  { halal:'high',    sector:'Pharma',           tier:'large',  description:'GLP-1 weight loss drugs (Mounjaro, Zepbound) market leader' },
   TMO:  { halal:'high',    sector:'Life Sciences',    tier:'large',  description:'Scientific instruments and lab services' },
   ISRG: { halal:'high',    sector:'Robotic Surgery',  tier:'large',  description:'da Vinci robotic surgical systems' },
   PANW: { halal:'high',    sector:'Cybersecurity',    tier:'large',  description:'Comprehensive cybersecurity — firewall to cloud' },
   NOW:  { halal:'high',    sector:'Cloud SaaS',       tier:'large',  description:'IT service management and enterprise workflow automation' },
   AMAT: { halal:'high',    sector:'Semiconductors',   tier:'large',  description:'Semiconductor manufacturing equipment' },
-  HD:   { halal:'high',    sector:'Retail',           tier:'large',  description:'Home improvement retail — housing market play' },
-  TSLA: { halal:'medium',  sector:'EV',               tier:'large',  description:'Electric vehicles, energy storage, autonomous driving, Elon-driven' },
   SNOW: { halal:'high',    sector:'Cloud',            tier:'large',  description:'Cloud data warehouse and analytics platform' },
   ABT:  { halal:'high',    sector:'Healthcare',       tier:'large',  description:'Abbott Labs — diagnostics, medical devices, nutrition' },
   JNJ:  { halal:'high',    sector:'Healthcare',       tier:'large',  description:'Johnson & Johnson — pharmaceuticals and medical devices' },
   FRPT: { halal:'high',    sector:'Pet Food',         tier:'large',  description:'Freshpet — fresh refrigerated pet food' },
-  MRK:  { halal:'high',    sector:'Pharma',           tier:'large',  description:'Merck — Keytruda cancer drug and vaccines' },
   VLO:  { halal:'high',    sector:'Energy',           tier:'large',  description:'Valero Energy — oil refining and fuel production' },
   CVX:  { halal:'high',    sector:'Energy',           tier:'large',  description:'Chevron — integrated energy company' },
-  APP:  { halal:'medium',  sector:'Ad Tech',          tier:'large',  description:'AppLovin — mobile advertising and gaming technology' },
-  ANET: { halal:'high',    sector:'Networking',       tier:'large',  description:'Arista Networks — cloud networking switches' },
+  LLY:  { halal:'high',    sector:'Pharma',           tier:'large',  description:'GLP-1 weight loss drugs (Mounjaro, Zepbound) market leader' },
   // ── BIG ($201–$400) ────────────────────────────────────────────────────────
   AVGO: { halal:'high',    sector:'Semiconductors',   tier:'big',    description:'Broadcom — custom AI chips, networking, and enterprise software' },
   TSM:  { halal:'high',    sector:'Semiconductors',   tier:'big',    description:'Taiwan Semiconductor — manufactures chips for Apple, NVDA, AMD' },
-  COST: { halal:'high',    sector:'Retail',           tier:'big',    description:'Costco — membership warehouse with ultra-loyal customers' },
   MA:   { halal:'high',    sector:'Payments',         tier:'big',    description:'Mastercard — payment network (processes, does not lend)' },
   V:    { halal:'high',    sector:'Payments',         tier:'big',    description:'Visa — global payment network technology' },
   ADBE: { halal:'high',    sector:'Software',         tier:'big',    description:'Adobe — creative software (Photoshop, Illustrator, PDF)' },
   ORCL: { halal:'high',    sector:'Cloud',            tier:'big',    description:'Oracle — enterprise database and cloud infrastructure' },
-  INTU: { halal:'high',    sector:'SaaS',             tier:'big',    description:'TurboTax, QuickBooks, Credit Karma — financial software' },
   COR:  { halal:'high',    sector:'Healthcare',       tier:'big',    description:'Cencora (AmerisourceBergen) — pharmaceutical distribution' },
+  MSFT: { halal:'high',    sector:'Cloud/AI',         tier:'big',    description:'Azure cloud, Office 365, and OpenAI partnership' },
+  TSLA: { halal:'medium',  sector:'EV',               tier:'big',    description:'Electric vehicles, energy storage, autonomous driving, Elon-driven' },
+  HD:   { halal:'high',    sector:'Retail',           tier:'big',    description:'Home improvement retail — housing market play' },
+  APP:  { halal:'medium',  sector:'Ad Tech',          tier:'big',    description:'AppLovin — mobile advertising and gaming technology' },
   // ── PREMIUM ($401–$700) ────────────────────────────────────────────────────
   ASML: { halal:'high',    sector:'Semiconductors',   tier:'premium',description:'EUV lithography machines — only supplier globally' },
   NVO:  { halal:'high',    sector:'Pharma',           tier:'premium',description:'Novo Nordisk — Ozempic and Wegovy GLP-1 global leader' },
-  MSTR: { halal:'doubtful',sector:'Crypto',           tier:'premium',description:'MicroStrategy — primary asset is Bitcoin holdings' },
+  INTU: { halal:'high',    sector:'SaaS',             tier:'premium',description:'TurboTax, QuickBooks, Credit Karma — financial software' },
   // ── ELITE ($701+) ─────────────────────────────────────────────────────────
   LRCX: { halal:'high',    sector:'Semiconductors',   tier:'elite',  description:'Lam Research — etch and deposition semiconductor equipment' },
-  BRK:  { halal:'doubtful',sector:'Financial',        tier:'elite',  description:'Berkshire Hathaway — significant insurance and banking exposure' },
+  COST: { halal:'high',    sector:'Retail',           tier:'elite',  description:'Costco — membership warehouse with ultra-loyal customers' },
 };
 
 // Note: SOXX and FENY are ETFs — handled separately in the route
@@ -167,18 +165,35 @@ const UNIVERSE: Record<string, UniverseEntry> = {
 
 // ── Behavior profiles ─────────────────────────────────────────────────────────
 const BEHAVIOR: Record<string, {primary:string;pattern:string;avoid:string;best:string}> = {
-  NVDA: { primary:'AI infrastructure demand and data center GPU orders',       pattern:'Leads AI sector — earnings move ±8-10%. Breakouts sustain on high volume.',             avoid:'VIX > 25 or broad tech selloff',              best:'Momentum breakouts after earnings beats or AI contract wins' },
-  AMD:  { primary:'Market share gains vs Intel CPUs and NVDA GPUs',           pattern:'Often lags then catches up to NVDA. Strong on data center revenue beats.',              avoid:'NVDA is falling — AMD typically follows with lag', best:'Dip buys when NVDA has recovered but AMD hasnt' },
-  HIMS: { primary:'GLP-1 access and telehealth growth',                       pattern:'FDA news creates 20-35% swings. Earnings ±10-15%.',                                       avoid:'FDA uncertainty or competitor approval news',     best:'Momentum after FDA approvals or coverage expansions' },
-  TSLA: { primary:'Elon Musk news, delivery numbers, and interest rate moves', pattern:'Amplifies market 2-3×. Retail-driven. Moving on any Musk tweet.',                        avoid:'Rising rates or Musk controversy weeks',          best:'Momentum setups with strong volume after delivery beats' },
-  NVO:  { primary:'Ozempic/Wegovy demand and obesity drug pipeline',          pattern:'Steady uptrend with 5-8% pullbacks on competitor news.',                                  avoid:'Competitor GLP-1 readouts or pricing pressure',   best:'Dip buys on pullbacks in confirmed uptrend' },
-  RKLB: { primary:'Launch manifest growth and space economy expansion',        pattern:'Highly volatile — each launch validates or punishes. Retail favourite.',                  avoid:'Delayed launches or SpaceX competition news',     best:'News catalyst after successful launches' },
-  PLTR: { primary:'AI platform adoption in government and commercial sectors', pattern:'Moves on government contract wins and AI narrative.',                                      avoid:'Defense budget cuts or macro risk-off',           best:'Momentum breakouts after earnings beats' },
-  RIOT: { primary:'Bitcoin price (correlation ~0.92)',                         pattern:'Amplifies BTC moves 2-3×. If BTC flat → RIOT dies. Very retail-driven.',                 avoid:'When Bitcoin is flat or falling',                 best:'When BTC breaks out — RIOT follows with amplification' },
-  ALAB: { primary:'AI data center connectivity chip demand',                   pattern:'Moves on AI infrastructure news and NVDA earnings guidance.',                             avoid:'Data center capex slowdown fears',                best:'Momentum breakouts alongside NVDA/AVGO strength' },
-  CRDO: { primary:'High-speed data center interconnect chip demand',           pattern:'Moves with AI infrastructure buildout cycle. Earnings ±15-20%.',                         avoid:'Slowdown in hyperscaler capex',                   best:'Breakouts on earnings beats and guidance raises' },
-  AVGO: { primary:'Custom AI chips (XPUs) and networking for hyperscalers',    pattern:'Slow steady grinder with big earnings moves. Less volatile than AMD/NVDA.',              avoid:'Hyperscaler capex cuts',                         best:'Dip buys after market-wide pullbacks' },
-  ANET: { primary:'Cloud networking switches for AI data centers',             pattern:'Tight range then explosive earnings move. Very institutional.',                            avoid:'Cloud spending slowdown or NVDA earnings miss',   best:'Post-earnings momentum when guidance raised' },
+  NVDA: { primary:'AI GPU demand — data center orders and AI infrastructure spending', pattern:'Leads AI sector. Earnings move ±8-10%. Breakouts sustain on volume.', avoid:'VIX > 25 or broad tech selloff', best:'Momentum breakouts after earnings beats or AI contract announcements' },
+  AMD:  { primary:'Market share gains vs Intel CPUs and NVDA GPUs in data centers', pattern:'Often lags NVDA then catches up. Strong on data center revenue beats.', avoid:'When NVDA is falling — AMD follows with 1-2 day lag', best:'Dip buys when NVDA has recovered but AMD has not yet followed' },
+  HIMS: { primary:'GLP-1 weight loss drug access and telehealth platform growth', pattern:'FDA news creates 20-35% swings. Earnings ±10-15%. Very news-driven.', avoid:'FDA approval uncertainty or major competitor GLP-1 announcements', best:'Momentum after FDA approvals, coverage expansions, or earnings beats' },
+  TSLA: { primary:'Elon Musk news, delivery numbers, and macro interest rate sensitivity', pattern:'Amplifies market moves 2-3x. Retail-driven. Reacts to any Musk tweet.', avoid:'Rising interest rates or Musk controversy weeks', best:'Momentum setups with strong volume confirmation after delivery beats' },
+  NVO:  { primary:'Ozempic/Wegovy global demand and obesity drug pipeline expansion', pattern:'Steady grinder with 5-8% pullbacks on competitor drug data readouts.', avoid:'Competitor GLP-1 trial results or pricing pressure from legislation', best:'Dip buys at key support on pullbacks within confirmed uptrend' },
+  RKLB: { primary:'Launch manifest growth and satellite services revenue expansion', pattern:'Highly volatile — each launch validates or punishes. Strong retail following.', avoid:'Launch delays, SpaceX competition news, or macro risk-off environment', best:'News catalyst after successful launches and contract wins' },
+  PLTR: { primary:'AI platform adoption in government and commercial sectors', pattern:'Moves on government contract wins and AI narrative. S&P inclusion amplified it.', avoid:'Defense budget cut fears or macro risk-off environment', best:'Momentum breakouts after earnings beats with raised guidance' },
+  RIOT: { primary:'Bitcoin price correlation — moves 2-3x BTC in both directions', pattern:'If BTC moves -> RIOT amplifies it. If BTC flat -> RIOT dies. Pure retail play.', avoid:'When Bitcoin is in a flat range or falling', best:'When BTC breaks out to new range — RIOT follows with amplification' },
+  ALAB: { primary:'AI data center connectivity chip demand from hyperscalers', pattern:'Moves on AI infrastructure news and NVDA/AVGO earnings guidance.', avoid:'Data center capex slowdown fears or hyperscaler earnings misses', best:'Momentum breakouts alongside NVDA/AVGO strength' },
+  CRDO: { primary:'High-speed data center interconnect chip demand for AI workloads', pattern:'Moves with AI infrastructure buildout cycle. Earnings ±15-20%.', avoid:'Slowdown in hyperscaler capital expenditure', best:'Breakouts on earnings beats and forward guidance raises' },
+  AVGO: { primary:'Custom AI chips (XPUs) for hyperscalers and network infrastructure', pattern:'Slow steady grinder with big earnings moves. Less volatile than AMD/NVDA.', avoid:'Hyperscaler capex cut announcements', best:'Dip buys after broad market pullbacks — it recovers reliably' },
+  ANET: { primary:'Cloud networking switches for AI data center buildouts', pattern:'Tight range then explosive earnings move. Very institutional ownership.', avoid:'Cloud spending slowdown or NVDA earnings guidance cut', best:'Post-earnings momentum when guidance is raised' },
+  SHOP: { primary:'E-commerce platform growth and merchant services expansion globally', pattern:'Moves on GMV growth and take-rate expansion. Earnings +-8-12%.', avoid:'Consumer spending slowdown fears or Amazon competitive pressure', best:'Breakouts after earnings with strong GMV growth guidance' },
+  MSFT: { primary:'Azure cloud growth and AI monetization through Copilot products', pattern:'Slow grinder, steady uptrend. Low beta. Moves on cloud segment growth.', avoid:'Cloud capex concerns or AI ROI skepticism from enterprise clients', best:'Dip buys at 50-day EMA support — very reliable bounce level' },
+  CRWD: { primary:'Endpoint security market share gains and platform consolidation trend', pattern:'Moves on deal wins and net new ARR. Earnings +-6-10%. Strong momentum.', avoid:'Enterprise IT budget freeze news or major security breach at competitor', best:'Momentum breakouts after earnings beats with ARR acceleration' },
+  PANW: { primary:'Cybersecurity platform consolidation and platformization strategy', pattern:'Strong secular trend. Earnings moves +-5-8%. Institutional favorite.', avoid:'When government IT spending is being questioned', best:'Dip buys during broad market weakness — sector is defensive' },
+  MRVL: { primary:'Custom AI chip design wins and data center networking chips', pattern:'Highly correlated to AI infrastructure cycle. Earnings +-10-15%.', avoid:'AI infrastructure spending pause or major customer inventory buildup', best:'Breakouts on AI design win announcements' },
+  MU:   { primary:'Memory chip pricing cycle — DRAM and NAND supply/demand balance', pattern:'Highly cyclical. Moves on memory pricing. Earnings can swing +-15-20%.', avoid:'Memory oversupply news or China export restriction headlines', best:'Dip buys when memory pricing trough is confirmed by management' },
+  QCOM: { primary:'Mobile chipset licensing and diversification into IoT and auto chips', pattern:'Steady dividend payer. Moves on iPhone cycle and design win news.', avoid:'Apple in-house chip development news or China handset weakness', best:'Dip buys around key support — reliable bounce level stock' },
+  NET:  { primary:'Zero-trust network security and cloud edge platform adoption', pattern:'High-growth SaaS. Moves on large enterprise deal wins. Earnings +-8-12%.', avoid:'Macro slowdown affecting enterprise software spending', best:'Momentum breakouts after earnings beats with accelerating net new ARR' },
+  DDOG: { primary:'Cloud observability and monitoring platform for DevOps teams', pattern:'Pure growth SaaS. Moves on net new ARR and customer count growth.', avoid:'Cloud spending optimization or enterprise consolidation waves', best:'Breakouts post-earnings when usage-based revenue accelerates' },
+  PATH: { primary:'Robotic process automation market and AI agent workflow adoption', pattern:'Highly correlated to enterprise software spending cycle.', avoid:'Enterprise IT budget freeze or RPA competitive pressure from Microsoft', best:'Breakouts on enterprise deal announcements and ARR acceleration' },
+  ZETA: { primary:'Data-driven marketing technology and identity resolution platform', pattern:'Moves on customer growth and platform expansion.', avoid:'Digital ad spending slowdowns or privacy regulation tightening', best:'Momentum after earnings beats with raised full-year guidance' },
+  VRT:  { primary:'Power management and cooling solutions for AI data centers', pattern:'Direct beneficiary of AI data center buildout. Moves with data center capex.', avoid:'Data center construction pause or power grid capacity constraints', best:'Momentum breakouts alongside NVDA data center earnings beats' },
+  SNOW: { primary:'Cloud data warehouse consumption revenue and AI workload adoption', pattern:'Consumption-based SaaS — very volatile earnings. Revenue tied to actual usage.', avoid:'Cloud optimization waves where customers reduce data workloads', best:'Breakouts when product revenue acceleration is confirmed on earnings' },
+  AAPL: { primary:'iPhone supercycle expectations and Services revenue growth', pattern:'Moves on iPhone shipment estimates and App Store/Services margin expansion.', avoid:'Consumer spending slowdown or China market weakness', best:'Dip buys at 200-day EMA — Apple is the ultimate buy-the-dip stock' },
+  LLY:  { primary:'GLP-1 drug demand globally — Mounjaro and Zepbound weight loss', pattern:'Steady long-term uptrend with occasional 5-10% corrections on supply news.', avoid:'Drug pricing legislation news or manufacturing capacity constraint headlines', best:'Dip buys during market pullbacks — fundamental thesis very strong' },
+  MRK:  { primary:'Oncology drug pipeline led by Keytruda cancer treatment', pattern:'Steady compounder. Moves on Keytruda sales growth and pipeline readouts.', avoid:'Major pipeline failure news or biosimilar competition for Keytruda', best:'Dip buys at support — defensive healthcare stock with growth' },
+  TSM:  { primary:'Global semiconductor manufacturing capacity and AI chip production', pattern:'Steady compounder. Moves on NVIDIA order growth and foundry capacity news.', avoid:'China-Taiwan geopolitical tensions or ASML equipment export restrictions', best:'Dip buys during geopolitical fear selloffs — business fundamentals intact' },
 };
 
 // ── Indicator math ────────────────────────────────────────────────────────────
@@ -234,25 +249,49 @@ function detectKeyMoves(c:{closes:number[];highs:number[];lows:number[];volumes:
   return moves.sort((a,b)=>Math.abs(b.pct)-Math.abs(a.pct)).slice(0,5);
 }
 
-// ── Explain move — Finnhub news + Claude, with fallback to training knowledge ──
-async function getMoveReason(ticker:string,date:string,pct:number,apiKey:string,sector:string):Promise<string>{
-  let headlines:string[]=[];
+// ── Explain key moves — batch all moves for a stock in ONE Claude call ────────
+async function getMoveReasons(ticker:string,moves:{date:string;pct:number}[],apiKey:string,sector:string):Promise<string[]>{
+  if(!moves.length) return [];
+  // Fetch news for the date range covering all moves
+  let allHeadlines: Record<string,string[]> = {};
   if(FINNHUB_KEY){
-    try{
-      const from=new Date(new Date(date).getTime()-86400000).toISOString().split('T')[0];
-      const to=new Date(new Date(date).getTime()+86400000).toISOString().split('T')[0];
-      const res=await fetch(`${FH_BASE}/company-news?symbol=${ticker}&from=${from}&to=${to}&token=${FINNHUB_KEY}`,{signal:AbortSignal.timeout(5000)});
-      if(res.ok)headlines=(await res.json()).slice(0,5).map((a:any)=>a.headline??'').filter(Boolean);
-    }catch{}
+    await Promise.all(moves.map(async m=>{
+      try{
+        const from=new Date(new Date(m.date).getTime()-86400000).toISOString().split('T')[0];
+        const to=new Date(new Date(m.date).getTime()+86400000).toISOString().split('T')[0];
+        const res=await fetch(`${FH_BASE}/company-news?symbol=${ticker}&from=${from}&to=${to}&token=${FINNHUB_KEY}`,{signal:AbortSignal.timeout(4000)});
+        if(res.ok){
+          const articles=await res.json();
+          allHeadlines[m.date]=(Array.isArray(articles)?articles:[]).slice(0,3).map((a:any)=>a.headline??'').filter(Boolean);
+        }
+      }catch{}
+    }));
   }
   try{
-    const prompt=headlines.length>0
-      ?`${ticker} moved ${pct>0?'+':''}${pct}% on ${date}. Headlines:\n${headlines.join('\n')}\n\nOne plain sentence (max 20 words) explaining why. No preamble.`
-      :`${ticker} (${sector} company) moved ${pct>0?'+':''}${pct}% on ${date}. No news available. Based on typical catalysts for this sector and company type, write one plain sentence (max 20 words) explaining what likely caused this move. Be specific to the company type — e.g. for a biotech say FDA/trial, for a crypto miner say Bitcoin price, etc. No preamble.`;
-    const res=await fetch(ANTHROPIC_URL,{method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01'},body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:80,messages:[{role:'user',content:prompt}]})});
+    const moveText=moves.map(m=>{
+      const heads=allHeadlines[m.date]??[];
+      return `${m.date}: ${m.pct>0?'+':''}${m.pct}% ${heads.length?'| Headlines: '+heads.join(' | '):'| No news found'}`;
+    }).join('\n');
+    const res=await fetch(ANTHROPIC_URL,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-6',max_tokens:300,
+        messages:[{role:'user',content:`${ticker} is a ${sector} company. Explain each price move in ONE plain sentence (max 15 words). If no news, infer from typical catalysts for this company type. Return ONLY a JSON array of strings, one per move, in same order:\n${moveText}\nFormat: ["reason1","reason2",...]`}],
+      }),
+    });
     const d=await res.json();
-    return d.content?.[0]?.text?.trim()??'';
-  }catch{return pct>0?'Strong buying — likely sector rotation or institutional accumulation':'Heavy selling — likely profit-taking or macro risk-off event';}
+    const raw=(d.content?.[0]?.text??'').trim().replace(/^```[a-z]*\s*/,'').replace(/\s*```\s*$/,'').trim();
+    try{
+      const arr=JSON.parse(raw);
+      if(Array.isArray(arr))return arr.map(String);
+    }catch{}
+    const idx=raw.indexOf('[');const last=raw.lastIndexOf(']');
+    if(idx>=0&&last>idx){try{const arr=JSON.parse(raw.slice(idx,last+1));if(Array.isArray(arr))return arr.map(String);}catch{}}
+    return moves.map(m=>m.pct>0?'Strong buying — likely sector momentum or institutional accumulation':'Heavy selling — likely profit-taking or macro risk-off');
+  }catch{
+    return moves.map(m=>m.pct>0?'Strong buying pressure in the session':'Heavy selling pressure in the session');
+  }
 }
 
 // ── Catalyst — returns headlines too ─────────────────────────────────────────
@@ -458,26 +497,34 @@ function analyzeSetup(candles:{closes:number[];highs:number[];lows:number[];volu
 function calcLevels(c:{closes:number[];highs:number[];lows:number[]},price:number){
   const{closes,highs,lows}=c;
   const n=closes.length;
-  // Pivot points from previous session
-  const pdh=parseFloat(highs[n-2].toFixed(2));  // Previous Day High (Rumers Box top)
-  const pdl=parseFloat(lows[n-2].toFixed(2));   // Previous Day Low  (Rumers Box bottom)
-  const pdm=parseFloat(((pdh+pdl)/2).toFixed(2)); // Box midpoint — indecision zone
-  const pp=(pdh+pdl+closes[n-2])/3;
-  const r1=2*pp-pdl,r2=pp+(pdh-pdl),s1=2*pp-pdh,s2=pp-(pdh-pdl);
-  // Fibonacci from 60-bar swing
-  const swingHi=Math.max(...highs.slice(-60)),swingLo=Math.min(...lows.slice(-60));
-  const range=swingHi-swingLo,isUp=(price-swingLo)>(swingHi-price);
+  // Previous Day High/Low = last completed bar (Rumers Box)
+  // bars are sorted asc: bars[n-1] = most recent session, bars[n-2] = prior session
+  // For PDH/PDL use bars[n-1] since that IS the previous completed trading day
+  const pdh=parseFloat(highs[n-1].toFixed(2));
+  const pdl=parseFloat(lows[n-1].toFixed(2));
+  const pdm=parseFloat(((pdh+pdl)/2).toFixed(2));
+  // Pivot points from prior session (bars[n-1])
+  const pp=(pdh+pdl+closes[n-1])/3;
+  const r1=parseFloat((2*pp-pdl).toFixed(2));
+  const r2=parseFloat((pp+(pdh-pdl)).toFixed(2));
+  const s1=parseFloat((2*pp-pdh).toFixed(2));
+  const s2=parseFloat((pp-(pdh-pdl)).toFixed(2));
+  // Fibonacci from 60-bar swing (for longer-term context)
+  const swingHi=Math.max(...highs.slice(-60));
+  const swingLo=Math.min(...lows.slice(-60));
+  const range=swingHi-swingLo;
+  const isUp=(price-swingLo)>(swingHi-price);
   const base=isUp?swingLo:swingHi,sign=isUp?1:-1;
   const atr=calcATR(highs,lows,closes);
   return{
-    pdh,pdl,pdm,  // Previous Day High/Low/Mid — The Rumers Box levels
-    r2:parseFloat(r2.toFixed(2)),r1:parseFloat(r1.toFixed(2)),
-    s1:parseFloat(s1.toFixed(2)),s2:parseFloat(s2.toFixed(2)),
+    pdh,pdl,pdm,
+    r2,r1,s1,s2,
     pivot:parseFloat(pp.toFixed(2)),
     fib382:parseFloat((base+sign*range*0.382).toFixed(2)),
     fib500:parseFloat((base+sign*range*0.500).toFixed(2)),
     fib618:parseFloat((base+sign*range*0.618).toFixed(2)),
-    swingHi:parseFloat(swingHi.toFixed(2)),swingLo:parseFloat(swingLo.toFixed(2)),
+    swingHi:parseFloat(swingHi.toFixed(2)),
+    swingLo:parseFloat(swingLo.toFixed(2)),
     atr:parseFloat(atr.toFixed(2)),
   };
 }
@@ -551,16 +598,15 @@ async function generateBehavior(ticker:string,sector:string,description:string,a
       method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01'},
       body:JSON.stringify({
-        model:'claude-sonnet-4-6',max_tokens:200,
-        messages:[{role:'user',content:`For the stock ${ticker} (${sector} sector: ${description}), provide a brief trading behavior profile in this exact JSON format with no other text:
-{"primary":"what primarily drives this stock's price movements","pattern":"typical movement behavior and earnings reaction","avoid":"when NOT to trade this (market conditions or catalysts)","best":"what type of setup works best for this stock"}
-Keep each field under 15 words. Be specific to this company.`}],
+        model:'claude-sonnet-4-6',max_tokens:250,
+        messages:[{role:'user',content:`Stock: ${ticker} | Sector: ${sector} | About: ${description}\nReturn ONLY valid JSON (no markdown, no explanation):\n{"primary":"main catalyst driving price 12 words max","pattern":"typical movement pattern and earnings behavior 15 words max","avoid":"when NOT to trade this 12 words max","best":"best setup type for this stock 12 words max"}`}],
       }),
     });
     const d=await res.json();
-    const txt=d.content?.[0]?.text?.trim()??'';
-    const m=txt.match(/\{[\s\S]*\}/);
-    if(m)return JSON.parse(m[0]);
+    const raw=(d.content?.[0]?.text??'').trim().replace(/^```[a-z]*\s*/,'').replace(/\s*```\s*$/,'').trim();
+    try{return JSON.parse(raw);}catch{}
+    const idx=raw.indexOf('{');const last=raw.lastIndexOf('}');
+    if(idx>=0&&last>idx){try{return JSON.parse(raw.slice(idx,last+1));}catch{}}
     return null;
   }catch{return null;}
 }
@@ -602,9 +648,12 @@ export async function POST(request:NextRequest){
       fetchFundamentals(ticker),fetchAnalystTargets(ticker),fetchNextEarnings(ticker),fetchCatalyst(ticker),
     ]);
     const keyMoves=detectKeyMoves(candles);
-    const movesWithReasons=anthropicKey
-      ?await Promise.all(keyMoves.slice(0,4).map(async m=>({...m,reason:await getMoveReason(ticker,m.date,m.pct,anthropicKey,meta.sector)})))
-      :keyMoves.map(m=>({...m,reason:'Enable ANTHROPIC_API_KEY for AI explanations'}));
+    const movesWithReasons = anthropicKey
+      ? await (async () => {
+          const reasons = await getMoveReasons(ticker, keyMoves.slice(0,4).map(m=>({date:m.date,pct:m.pct})), anthropicKey, meta.sector);
+          return keyMoves.slice(0,4).map((m,i)=>({...m,reason:reasons[i]??'Significant price move — historical context unavailable'}));
+        })()
+      : keyMoves.slice(0,4).map(m=>({...m,reason:'Enable ANTHROPIC_API_KEY for AI explanations'}));
     // Behavior: use manual profile if available, else Claude-generate it
     const behavior=BEHAVIOR[ticker]??(anthropicKey?await generateBehavior(ticker,meta.sector,meta.description,anthropicKey):null);
     const{data:certs}=await supabase.from('halal_certifications').select('*').eq('ticker',ticker);
@@ -662,10 +711,10 @@ export async function POST(request:NextRequest){
 
   // ── Mode A: auto scan (single tier) ──────────────────────────────────────
   const bounds=PRICE_BOUNDS[price_range]??PRICE_BOUNDS.medium;
-  const candidates=Object.entries(UNIVERSE).filter(([,m])=>PRICE_BOUNDS[m.tier]&&PRICE_BOUNDS[m.tier][0]<=bounds[1]&&PRICE_BOUNDS[m.tier][1]>=bounds[0]).map(([t])=>t);
-  if(!candidates.length)return NextResponse.json({signal:'NO_TRADE',reason:'No candidates for selected range.',scanned:0,setups:[]});
-
-  const candleMap=await batchFetch(candidates,fetchCandles,8,600);
+  // Scan ALL universe stocks — actual Alpaca price determines range match
+  // 20 concurrent, no delay — ~120 stocks takes 3-4s, within Vercel 10s limit
+  const candidates=Object.keys(UNIVERSE);
+  const candleMap=await batchFetch(candidates,fetchCandles,20,0);
   const inRange=candidates.filter(t=>{const c=candleMap.get(t);return c&&c.price>=bounds[0]&&c.price<=bounds[1];});
 
   if(!inRange.length){

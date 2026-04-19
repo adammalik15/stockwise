@@ -5,64 +5,129 @@ import dynamic from 'next/dynamic';
 import {
   Zap, Search, Loader2, TrendingUp, TrendingDown, Info,
   ChevronDown, ChevronUp, CheckCircle2, XCircle, AlertCircle,
-  RefreshCw, BookOpen, ExternalLink, BarChart2, Calendar,
-  Brain, Shield, Target, Activity, AlertTriangle, Trophy,
+  RefreshCw, BookOpen, ExternalLink, Calendar, X,
+  Brain, Shield, Target, Activity, AlertTriangle, Trophy, PanelRight,
 } from 'lucide-react';
 
 const PriceChart = dynamic(() => import('@/components/charts/PriceChart'), { ssr: false });
 
+// ── Date formatting: always MM/DD/YYYY ────────────────────────────────────────
+function fmtDate(d:string|null|undefined):string{
+  if(!d)return'';
+  const parts=d.split('-');
+  if(parts.length!==3)return d;
+  const[y,m,day]=parts;
+  return`${m}/${day}/${y}`;
+}
+
 // ── Tooltip text ──────────────────────────────────────────────────────────────
 const TIPS: Record<string,string> = {
-  confidence: 'Score 1–10: how many of 5 signal criteria this setup meets. 4 = minimum. 6+ = strong. 8+ = high conviction.',
-  rsi:     'RSI (0–100): 0–30 = oversold (watch for bounce) · 30–50 = neutral · 50–65 = healthy momentum ✓ · 65–78 = elevated · 78+ = overbought (we reject these).',
-  macd:    'MACD: compares two moving averages to detect momentum direction. Bullish = short-term crossing above long-term. Expanding histogram = accelerating.',
-  atr:     'ATR (Average True Range): typical daily dollar move. Stop = entry minus 1.5×ATR. Target 1 = entry plus 2×ATR.',
-  volume:  'Volume ratio vs 20-day average. Below 1.3× = weak conviction. 1.3–2× = confirmed ✓. 2×+ = strong institutional interest.',
-  ema20:   'EMA-20: 20-day moving average. Price above = short-term uptrend. Acts as first support on pullbacks.',
-  ema50:   'EMA-50: 50-day moving average. Price above both EMAs = fully bullish trend alignment ✓.',
-  adx:     'ADX: trend strength — not direction. Below 20 = sideways chop (avoid). 20–30 = developing. 30–50 = strong ✓. 50+ = very strong.',
-  stoch:   'Stochastic: where price is in its recent range. Below 20 = oversold. Above 80 = overbought. %K crossing %D = signal.',
-  sr:      'Support = price floor where buyers stepped in. Resistance = price ceiling. More tests = stronger level.',
-  fib:     'Fibonacci retracement levels. 38.2%, 50%, 61.8% used globally by institutions — self-fulfilling by widespread adoption.',
-  rr:      'Risk:Reward. 1:2 = risk $1 to make $2. Never enter below 1:1.5 R:R.',
-  entry:   'Entry zone: where to place your buy. Breakout = 0.2% above current (confirms the break). Dip buy = 0.4% below (gets the better price).',
-  stop:    'Stop-loss: mandatory exit if wrong. 1.5×ATR below entry — wide enough to breathe, tight enough to protect.',
-  tp1:     'Take-profit 1: first target at 2×ATR above entry. At this point move your stop to breakeven — you now risk nothing.',
-  keyMoves:'5%+ moves in the last 90 days with AI explanations of why they happened. Shows you what type of news moves this stock.',
-  earnings:'Estimated earnings call date. Trading into earnings is a binary bet — can swing 10-20% either way regardless of technicals.',
-  marketCap:'Total market value. Large cap = more stable. Small cap = more volatile but higher upside potential.',
-  pe:      'Price/Earnings: how much investors pay per dollar of profit. Compare within same sector for context.',
-  beta:    'Amplifies market moves. Beta 2 = moves twice as much as S&P 500. Higher beta = smaller position size needed.',
-  grossMargin:'Revenue minus cost of goods sold — shows pricing power and scalability.',
-  netMargin:'Profit after all expenses as % of revenue. Positive and growing = healthy business.',
-  shortInt:'Short interest: % of float sold short. High short interest + rising price = potential short squeeze amplifier.',
-  float:   'Shares available to trade. Low float = price can move dramatically on lower volume.',
-  capital: 'Enter your capital to calculate position size. Rule: never risk more than 3% of capital on any single trade.',
-  pdh:     'PDH = Previous Day High. The top of the "Rumers Box" — a known resistance reference point for the current session.',
-  pdl:     'PDL = Previous Day Low. The bottom of the "Rumers Box" — a known support reference point for the current session.',
-  pdm:     'Box Midpoint = halfway between previous day high and low. The indecision zone — avoid entering trades here.',
+  confidence:'Score 1–10: how many of our signal criteria this setup meets. 4 = minimum to qualify. 6+ = strong. 8+ = high conviction.',
+  rsi:      'RSI (0–100): 0–30 = oversold (watch for bounce) · 30–50 = neutral · 50–65 = healthy momentum ✓ · 65–75 = elevated · 75+ = overbought (we reject these).',
+  macd:     'MACD 8/17/9: faster version of the classic indicator. Bullish = short-term EMA crossing above long-term, with histogram expanding. Zero-line filter prevents weak signals.',
+  atr:      'ATR (Average True Range): how much the stock moves on a typical day in dollars. Stop = 1.5×ATR below entry. Target 1 = 2×ATR above entry.',
+  volume:   'Volume ratio vs 20-day average. Small stocks need 2×+ to confirm. Mid caps need 1.5×+. Large caps need 1.2×+.',
+  ema20:    'EMA-20: 20-day moving average — short-term trend. Price above = uptrend. A rising EMA-20 (sloping up) is a stronger signal than a flat one.',
+  ema50:    'EMA-50: 50-day moving average — medium-term trend. Best setups have price above EMA-9, EMA-20, and EMA-50 all aligned.',
+  adx:      'ADX: trend strength — not direction. Below 20 = choppy sideways (breakouts fail here). 20–30 = developing trend. 30–50 = strong trend ✓.',
+  stoch:    'Stochastic: where price sits in its recent high-low range. Below 20 = oversold. Above 80 = overbought. %K crossing %D = entry signal.',
+  sr:       'Support = price floor where buyers stepped in repeatedly. Resistance = price ceiling. More tests of a level = stronger it becomes.',
+  fib:      'Fibonacci retracement levels. 38.2%, 50%, 61.8% are used by institutions worldwide — becomes self-fulfilling through widespread adoption.',
+  rr:       'Risk:Reward ratio. 1:1.3 means for every $1 you risk, you aim to make $1.30. Never enter a trade with R:R below 1:1.',
+  entry:    'Entry zone: ATR-scaled entry prices. Breakout = price + ATR×0.10 (10% of daily range above, confirms the break). Dip buy = price − ATR×0.15 (15% below, gets the better price). Scales with stock volatility.',
+  stop:     'Stop-loss: the price where you exit if wrong. Set at 1.5×ATR below entry. Non-negotiable — place it before entering.',
+  tp1:      'Take-profit 1: first target at 2×ATR above entry. When hit, move stop to breakeven. You now have a risk-free trade running.',
+  keyMoves: '5%+ moves in the past 90 days with AI explanations. Reveals what type of catalysts move this specific stock — so you know what to watch for.',
+  earnings: 'Estimated next earnings call. Trading into earnings is a binary event — stock can swing 10-20%+ either way regardless of technicals. Approach with caution.',
+  marketCap:'Total market value of the company. Large cap = more stable, slower moves. Small cap = more volatile, higher potential upside.',
+  pe:       'Price-to-Earnings ratio. How much investors pay per $1 of profit. Context-dependent — always compare within the same sector.',
+  beta:     'Beta: how much this stock amplifies market moves. Beta 2 = moves twice the S&P 500. Higher beta needs smaller position size.',
+  grossMargin:'Gross profit margin = (Revenue − Cost of Goods) ÷ Revenue. High and stable = pricing power and scalable business model.',
+  netMargin: 'Net profit margin = Net income ÷ Revenue. Positive and growing = the business is profitable and improving.',
+  shortInt: 'Short interest: what % of tradeable shares are sold short. High short interest + rising price = potential short squeeze, amplifying upside moves.',
+  float:    'Shares available for public trading. Low float = smaller supply = price can move dramatically even on moderate volume.',
+  capital:  'Your trading capital for position sizing. The 3% rule: never risk more than 3% of total capital on any single trade.',
+  pdh:      'Previous Day High — the top of the "Rumers Box". Price breaking above PDH with volume = momentum confirmation for the session.',
+  pdl:      'Previous Day Low — the bottom of the "Rumers Box". Price holding above PDL = support intact. Break below = warning sign.',
+  pdm:      'Box Midpoint = (PDH + PDL) ÷ 2. The indecision zone between support and resistance. Avoid entering trades in the middle of the box.',
+  ema9:     'EMA-9: very short-term momentum (last 9 trading days). Price above EMA-9 > EMA-20 = full short-term stack aligned. This is the earliest momentum signal.',
 };
 
-// ── Educational 1-liners ──────────────────────────────────────────────────────
-const EDU: Record<string,(v:any)=>string> = {
-  rsi:   v=>v<30?`RSI ${v} — fell hard, watching for reversal signal`:v<50?`RSI ${v} — recovering, no clear momentum yet`:v<65?`RSI ${v} — healthy building momentum ✓`:v<78?`RSI ${v} — getting hot, reduce position size`:`RSI ${v} — overbought, high pullback risk`,
-  volume:v=>v>=2?`${v}× — institutions actively trading today`:`${v}×avg — ${v>=1.3?'participation confirmed ✓':'below 1.3× threshold, weak conviction'}`,
-  macd:  v=>v?.bullish?'MACD bullish — momentum accelerating upward ✓':'MACD bearish — momentum fading or reversing',
-  adx:   v=>v<20?`ADX ${v} — sideways chop, momentum plays risky`:v<30?`ADX ${v} — trend developing`:v<50?`ADX ${v} — strong trend ✓`:`ADX ${v} — very strong, watch for exhaustion`,
-  stoch: v=>v<20?`Stochastic ${v} — oversold, watch for %K crossover`:v>80?`Stochastic ${v} — overbought, momentum may exhaust`:`Stochastic ${v} — neutral zone, no extreme`,
-};
+// ── Right panel educational content ──────────────────────────────────────────
+const EDU_SECTIONS = [
+  {
+    id:'setup', label:'Signal & Setup',
+    intro:'The signal engine scans for 5 criteria before qualifying a setup. Every factor shown is a reason the trade passed. Higher confidence = more criteria met.',
+    items:[
+      {t:'Momentum Breakout',d:'Price breaks above the 20-day high with strong volume. Buy-stop entry confirms the breakout before you commit capital.',ex:'NVDA at $105, 20-day high $104. Breakout entry at $105.45 (10% of ATR above). Stop at $102 (1.5×ATR below).'},
+      {t:'Dip Buy Reversal',d:'Price has pulled back sharply (RSI < 42). You buy the dip expecting a bounce back toward trend. Limit order entry slightly below.',ex:'HIMS pulls from $32 to $27 (RSI 36). Dip entry at $26.60. Stop at $24.80. Target $29.40.'},
+      {t:'News Catalyst',d:'Fresh bullish news in the past 72h with above-average volume. Market price entry at open to capture the momentum.',ex:'RKLB announces new satellite contract. Volume 3.2× average. Entry at open $18.20. Stop $16.50.'},
+      {t:'Confidence Score',d:'1–10 scale. Volume always scores 1 point. Each additional qualifying factor (EMA alignment, RSI zone, MACD, ADX, stochastic) adds 1 more.',ex:'Score 4 = minimum. Score 7+ = strong setup. Score 9–10 = rare, high-conviction trade.'},
+    ],
+  },
+  {
+    id:'levels', label:'Trade Levels & R:R',
+    intro:'All price levels are derived from ATR (Average True Range) — the stock\'s typical daily move. This ensures stops and targets scale correctly to each stock\'s volatility.',
+    items:[
+      {t:'Entry Zone',d:'ATR-scaled entry: Breakout = price + ATR×0.10. Dip buy = price − ATR×0.15. Wider zone for volatile stocks, tighter for stable ones.',ex:'Stock at $50, ATR $2. Breakout entry: $50.20. Dip entry: $49.70. Never chase price far above entry zone.'},
+      {t:'Stop-Loss',d:'Set at 1.5×ATR below entry. This is the non-negotiable exit if the trade goes wrong. Place it before entering.',ex:'Entry $50.20, ATR $2. Stop = $50.20 − $3 = $47.20. If price hits $47.20, exit immediately — no second-guessing.'},
+      {t:'Target 1 (TP1)',d:'First profit target at 2×ATR above entry. When hit, move stop to breakeven. Now the trade risks nothing.',ex:'Entry $50.20, ATR $2. TP1 = $54.20. At TP1, stop moves to $50.20. You keep any further gains risk-free.'},
+      {t:'R:R Ratio',d:'Risk:Reward = (TP1 − Entry) ÷ (Entry − Stop). Our system targets 1:1.33 minimum. This means winners only need to hit 43% of the time to break even.',ex:'Risk $3, Target $4. R:R = 1:1.33. At 43% win rate: (0.43×$4) − (0.57×$3) = $0 breakeven. Higher win rate = profit.'},
+      {t:'PDH / PDL (Rumers Box)',d:'Previous Day High and Low define the "box" for today\'s session. Price above PDH = bullish. Below PDL = bearish. Middle = avoid.',ex:'PDH $52, PDL $48, Mid $50. If price is at $53 (above PDH), it\'s showing strength. If at $47 (below PDL), trend is broken.'},
+    ],
+  },
+  {
+    id:'indicators', label:'Indicators',
+    intro:'We use 6 indicators that each measure a different aspect of the market. No single indicator is enough — you need confluence across multiple ones.',
+    items:[
+      {t:'RSI (Relative Strength Index)',d:'Measures momentum fatigue. We use 28–42 for dip buys (genuinely oversold) and 50–65 for momentum buys (healthy, not overbought). We reject above 75.',ex:'RSI 35 + price above EMA-20 = ideal dip buy. RSI 58 + rising EMA-20 = ideal momentum buy. RSI 80 = danger zone, skip.'},
+      {t:'MACD (8/17/9)',d:'Faster than the standard 12/26/9 MACD. Catches momentum shifts 1-2 days earlier. Zero-line filter means we only count it as bullish when momentum is genuinely positive.',ex:'MACD histogram crossing from negative to positive = early momentum signal. Histogram expanding = momentum accelerating.'},
+      {t:'Volume Ratio',d:'Today\'s volume vs 20-day average. Tiered thresholds: small stocks need 2×+, mid caps 1.5×+, large caps 1.2×+. Low volume breakouts fail 70%+ of the time.',ex:'NVDA (large) at 1.3× = confirmed. RKLB (small) at 1.3× = too weak, needs 2×+. HIMS (mid) at 1.6× = confirmed.'},
+      {t:'EMA Stack (9/20/50)',d:'Three moving averages. The strongest setups have price > EMA-9 > EMA-20, with EMA-20 sloping upward. This is the "full stack" — all short-term momentum aligned.',ex:'Price $100, EMA-9 $98, EMA-20 $95, EMA-50 $90. All below price and stacked correctly = full bullish alignment ✓'},
+      {t:'ADX (Average Directional Index)',d:'Measures trend strength — not direction. We use it as a hard filter: Breakout setups need ADX > 20. Dip buys need ADX > 15. Below these thresholds = choppy, unreliable.',ex:'ADX 15 = sideways chop, breakouts will fail. ADX 28 = developing trend. ADX 42 = strong trend, great for momentum plays.'},
+      {t:'Stochastic',d:'Where price is in its recent high-low range. Most useful as a confirmation: RSI < 42 AND Stochastic < 25 = double-oversold = high-quality dip setup.',ex:'RSI 38 alone = ok signal. RSI 38 + Stochastic 18 = double confirmation, much higher probability bounce.'},
+    ],
+  },
+  {
+    id:'fundamentals', label:'Fundamentals',
+    intro:'Technicals tell you WHEN to buy. Fundamentals tell you WHAT to buy. Strong fundamentals mean the stock has a reason to recover when momentum slows.',
+    items:[
+      {t:'Revenue & Margins',d:'Revenue TTM = total annual sales. Gross profit = revenue minus cost of goods. Net income = what\'s left after all expenses. Growing margins = improving business.',ex:'Revenue $10B, Gross profit $7B (70% margin) = pricing power. Net income $2B (20% margin) = profitable. Both growing = strong.',},
+      {t:'P/E Ratio',d:'Price-to-earnings. High P/E = investors expect fast growth. Low P/E = value or slow growth. Always compare within same sector, not across industries.',ex:'Tech growth stock P/E 45 = normal. Pharma P/E 22 = reasonable. But a bank at P/E 45 would be extreme — context matters.'},
+      {t:'Beta',d:'Market amplifier. Beta 1.5 = moves 1.5× the S&P 500 in both directions. Higher beta means smaller position size to keep your dollar risk constant.',ex:'$10,000 position in Beta 1.0 stock vs Beta 2.0 stock. The Beta 2.0 position effectively has 2× the risk — halve the shares.'},
+      {t:'Short Interest',d:'% of float sold short. High short interest + rising price = potential short squeeze. Shorts must buy to cover losses, amplifying upside.',ex:'Stock with 25% short interest starts rising sharply. Shorts panic-cover, amplifying move. GME 2021 is the extreme example.'},
+      {t:'Analyst Consensus',d:'Average price target from Wall Street analysts. Shows where professionals think the stock will be in 12 months. Upside % = room to grow.',ex:'Stock at $80, consensus target $110 = 37.5% upside. Take with a grain of salt — targets are often revised up after the move.'},
+    ],
+  },
+  {
+    id:'position', label:'Position Sizing',
+    intro:'Position sizing is the single most important factor in long-term trading survival. Fixed fractional sizing (3% rule) means no single trade can seriously damage your account.',
+    items:[
+      {t:'The 3% Rule',d:'Never risk more than 3% of total capital on one trade. This is the dollar amount from entry to stop-loss × shares, not the position value.',ex:'$10,000 capital × 3% = $300 max loss. ATR $2, stop $3 away. Shares = $300 ÷ $3 = 100 shares. Position value = $5,000.'},
+      {t:'Shares Calculation',d:'Shares = (Capital × 0.03) ÷ StopDistance. StopDistance = 1.5×ATR. This auto-sizes so your max loss is always exactly 3% regardless of stock price.',ex:'NVDA at $110, ATR $5. Stop distance $7.50. $300 ÷ $7.50 = 40 shares. Position value: 40 × $110 = $4,400.'},
+      {t:'Adjust for Beta',d:'High-beta stocks (Beta > 1.5) carry extra risk. Consider using 2% max risk instead of 3% for volatile small caps or meme-adjacent stocks.',ex:'RIOT Beta 3.5 = very volatile. Use 2% rule: $200 max risk. ATR $1.50, stop $2.25. Shares = $200 ÷ $2.25 = 88 shares.'},
+      {t:'Never Average Down',d:'If a trade hits your stop-loss, exit. Do not buy more to reduce your average cost. This turns a controlled loss into a catastrophic one.',ex:'Bought 100 shares at $50, stop $47. Stock drops to $47 — EXIT. Buying more at $47 means you need a bigger recovery and took more risk.'},
+    ],
+  },
+];
 
-// ── Gauge ─────────────────────────────────────────────────────────────────────
+// ── Gauge component ───────────────────────────────────────────────────────────
 interface Zone{from:number;to:number;hex:string;alpha:number}
 function Gauge({label,value,min,max,zones,ticks,tipKey,eduMode,eduVal}:{label:string;value:number;min:number;max:number;zones:Zone[];ticks:{v:number;l:string}[];tipKey:string;eduMode:boolean;eduVal?:any}){
   const clamp=Math.min(max,Math.max(min,value));
   const pct=((clamp-min)/(max-min))*100;
   const zone=zones.find(z=>clamp>=z.from&&clamp<=z.to)??zones[zones.length-1];
+  const EDU_LINES: Record<string,(v:any)=>string> = {
+    rsi:   v=>v<30?`RSI ${v} — fell hard, watching for reversal signal`:v<50?`RSI ${v} — recovering, no clear momentum yet`:v<65?`RSI ${v} — healthy building momentum ✓`:v<78?`RSI ${v} — getting hot, reduce position size`:`RSI ${v} — overbought, high pullback risk`,
+    volume:v=>v>=2?`${v}× — institutions actively trading today`:`${v}×avg — ${v>=1.3?'participation confirmed ✓':'below threshold, weak conviction'}`,
+    adx:   v=>v<20?`ADX ${v} — sideways chop, momentum plays risky`:v<30?`ADX ${v} — trend developing`:v<50?`ADX ${v} — strong trend ✓`:`ADX ${v} — very strong, watch for exhaustion`,
+    stoch: v=>v<20?`Stochastic ${v} — oversold, watch for crossover`:v>80?`Stochastic ${v} — overbought, momentum may exhaust`:`Stochastic ${v} — neutral zone`,
+  };
   return(
     <div className="bg-surface-2 rounded-xl p-3 border border-border">
       <div className="flex items-center justify-between mb-1.5">
         <span className="text-[10px] text-muted uppercase tracking-wide font-semibold flex items-center gap-1">{label}<T id={tipKey}/></span>
-        <span className="text-sm font-mono font-bold" style={{color:zone.hex}}>{value>=10?Math.round(value):typeof value==='number'?value.toFixed(1):value}</span>
+        <span className="text-sm font-mono font-bold" style={{color:zone.hex}}>{value>=10?Math.round(value):value.toFixed(1)}</span>
       </div>
       <div className="relative h-3 rounded-full overflow-hidden bg-surface-3">
         {zones.map((z,i)=><div key={i} className="absolute top-0 h-full" style={{left:`${((z.from-min)/(max-min))*100}%`,width:`${((z.to-z.from)/(max-min))*100}%`,backgroundColor:z.hex,opacity:z.alpha}}/>)}
@@ -71,15 +136,16 @@ function Gauge({label,value,min,max,zones,ticks,tipKey,eduMode,eduVal}:{label:st
       <div className="relative mt-1 h-3">
         {ticks.map((t,i)=><span key={i} className="absolute text-[8px] text-muted" style={{left:`${((t.v-min)/(max-min))*100}%`,transform:'translateX(-50%)'}}>{t.l}</span>)}
       </div>
-      {eduMode&&EDU[tipKey]&&<p className="text-[10px] text-accent-green mt-2 pt-1.5 border-t border-border italic leading-relaxed">{EDU[tipKey](eduVal??value)}</p>}
+      {eduMode&&EDU_LINES[tipKey]&&<p className="text-[10px] text-accent-green mt-2 pt-1.5 border-t border-border italic leading-relaxed">{EDU_LINES[tipKey](eduVal??value)}</p>}
     </div>
   );
 }
-const RSI_Z:Zone[]=[{from:0,to:30,hex:'#3b82f6',alpha:.7},{from:30,to:50,hex:'#eab308',alpha:.55},{from:50,to:65,hex:'#10b981',alpha:.85},{from:65,to:78,hex:'#eab308',alpha:.55},{from:78,to:100,hex:'#ef4444',alpha:.7}];
+const RSI_Z:Zone[]=[{from:0,to:28,hex:'#3b82f6',alpha:.7},{from:28,to:42,hex:'#10b981',alpha:.8},{from:42,to:50,hex:'#eab308',alpha:.5},{from:50,to:65,hex:'#10b981',alpha:.85},{from:65,to:75,hex:'#eab308',alpha:.6},{from:75,to:100,hex:'#ef4444',alpha:.7}];
 const STOCH_Z:Zone[]=[{from:0,to:20,hex:'#3b82f6',alpha:.7},{from:20,to:80,hex:'#10b981',alpha:.6},{from:80,to:100,hex:'#ef4444',alpha:.7}];
 const ADX_Z:Zone[]=[{from:0,to:20,hex:'#ef4444',alpha:.6},{from:20,to:30,hex:'#eab308',alpha:.6},{from:30,to:50,hex:'#10b981',alpha:.85},{from:50,to:60,hex:'#eab308',alpha:.6}];
-const VOL_Z:Zone[]=[{from:0,to:1,hex:'#ef4444',alpha:.6},{from:1,to:1.3,hex:'#eab308',alpha:.6},{from:1.3,to:2,hex:'#10b981',alpha:.75},{from:2,to:3,hex:'#10b981',alpha:1}];
+const VOL_Z:Zone[]=[{from:0,to:1,hex:'#ef4444',alpha:.6},{from:1,to:1.3,hex:'#eab308',alpha:.5},{from:1.3,to:2,hex:'#10b981',alpha:.75},{from:2,to:3,hex:'#10b981',alpha:1}];
 
+// ── Tooltip ───────────────────────────────────────────────────────────────────
 function T({id}:{id:string}){
   const[open,setOpen]=useState(false);
   const txt=TIPS[id];
@@ -87,11 +153,12 @@ function T({id}:{id:string}){
   return(
     <div className="relative inline-block">
       <button onClick={e=>{e.stopPropagation();setOpen(o=>!o)}} className="text-muted hover:text-accent-green ml-0.5 align-middle transition-colors"><Info size={10}/></button>
-      {open&&(<><div className="fixed inset-0 z-40" onClick={()=>setOpen(false)}/><div className="absolute z-50 left-0 top-5 w-56 bg-surface-2 border border-border rounded-xl p-3 shadow-xl"><p className="text-[10px] text-secondary leading-relaxed">{txt}</p></div></>)}
+      {open&&(<><div className="fixed inset-0 z-40" onClick={()=>setOpen(false)}/><div className="absolute z-50 left-0 top-5 w-60 bg-surface-2 border border-border rounded-xl p-3 shadow-xl"><p className="text-[10px] text-secondary leading-relaxed">{txt}</p></div></>)}
     </div>
   );
 }
 
+// ── Halal badge ───────────────────────────────────────────────────────────────
 function HalalBadge({setup,onCertify,certLoading,canEdit}:{setup:any;onCertify:(t:string,v:string)=>void;certLoading:string|null;canEdit:boolean}){
   const v=setup.userCert?.user_verdict;
   const pre=setup.meta?.halal==='high';
@@ -111,13 +178,7 @@ function HalalBadge({setup,onCertify,certLoading,canEdit}:{setup:any;onCertify:(
   );
 }
 
-function fmtDollars(n:number|null){
-  if(n==null)return'N/A';
-  if(Math.abs(n)>=1e9)return`$${(n/1e9).toFixed(1)}B`;
-  if(Math.abs(n)>=1e6)return`$${(n/1e6).toFixed(0)}M`;
-  if(Math.abs(n)>=1e3)return`$${(n/1e3).toFixed(0)}K`;
-  return`$${n}`;
-}
+function fmtDollars(n:number|null){if(n==null)return'N/A';const abs=Math.abs(n);if(abs>=1e9)return`$${(n/1e9).toFixed(1)}B`;if(abs>=1e6)return`$${(n/1e6).toFixed(0)}M`;if(abs>=1e3)return`$${(n/1e3).toFixed(0)}K`;return`$${n}`;}
 function fmtVol(n:number){if(!n)return'N/A';if(n>=1e9)return`${(n/1e9).toFixed(1)}B`;if(n>=1e6)return`${(n/1e6).toFixed(1)}M`;if(n>=1e3)return`${(n/1e3).toFixed(0)}K`;return String(n);}
 
 // ── Setup card ────────────────────────────────────────────────────────────────
@@ -132,8 +193,10 @@ function SetupCard({setup,eduMode,onCertify,certLoading,isTopPick}:{setup:any;ed
   const earningsWarning=daysToEarnings!=null&&daysToEarnings<=7&&daysToEarnings>=0;
   const noSignal=!!setup.no_signal;
 
-  // Live position recalc
-  const atr=ind.atr??levels?.atr??1;
+  // ATR minimum guard: never let ATR be less than 0.5% of price (prevents exploding shares)
+  const rawATR=ind.atr??levels?.atr??0;
+  const minATR=(setup.price??10)*0.005;
+  const atr=Math.max(minATR,rawATR>0?rawATR:minATR);
   const stopDist=atr*1.5;
   const liveEntry=setup.entry??setup.price;
   const liveStop=parseFloat((liveEntry-stopDist).toFixed(2));
@@ -141,35 +204,29 @@ function SetupCard({setup,eduMode,onCertify,certLoading,isTopPick}:{setup:any;ed
   const liveShares=Math.max(1,Math.floor((capital*0.03)/Math.max(0.01,stopDist)));
   const livePos=parseFloat((liveShares*liveEntry).toFixed(2));
   const liveLoss=parseFloat((liveShares*stopDist).toFixed(2));
+  const liveRR=parseFloat(((atr*2)/stopDist).toFixed(1));
 
   const setupColor=setup.setup_type==='Momentum Breakout'?'badge-green':setup.setup_type==='Dip Buy Reversal'?'badge-blue':'badge-yellow';
   const confColor=setup.confidence>=7?'text-accent-green':setup.confidence>=5?'text-accent-yellow':'text-muted';
 
-  // Chart data formatted for PriceChart
   const chartData=(setup.chartData??[]).map((p:any)=>({
     date:p.date??p.d??'',open:p.close??p.c??0,high:p.close??p.c??0,low:p.close??p.c??0,close:p.close??p.c??0,volume:0,
   })).filter((p:any)=>p.date&&p.close>0);
 
   return(
     <div className={`card p-0 overflow-hidden border ${isTopPick?'border-accent-green/40':'border-border'}`}>
-
-      {/* Top pick banner */}
       {isTopPick&&!noSignal&&(
         <div className="bg-accent-green/10 border-b border-accent-green/25 px-4 py-2 flex items-center gap-2">
           <Trophy size={12} className="text-accent-green shrink-0"/>
-          <p className="text-[11px] text-accent-green font-semibold">🏆 Top Pick — Ranked highest by signal quality</p>
+          <p className="text-[11px] text-accent-green font-semibold">🏆 Top Pick — Highest signal quality in this scan</p>
         </div>
       )}
-
-      {/* Earnings warning */}
       {earningsWarning&&(
         <div className="bg-accent-yellow/10 border-b border-accent-yellow/20 px-4 py-2 flex items-center gap-2">
           <Calendar size={12} className="text-accent-yellow shrink-0"/>
-          <p className="text-[11px] text-accent-yellow font-semibold">⚠️ Earnings Call in {daysToEarnings} day{daysToEarnings!==1?'s':''} ({setup.earningsDate}) — binary bet, not momentum trade</p>
+          <p className="text-[11px] text-accent-yellow font-semibold">⚠️ Earnings Call in {daysToEarnings} day{daysToEarnings!==1?'s':''} ({fmtDate(setup.earningsDate)}) — binary bet, not momentum</p>
         </div>
       )}
-
-      {/* No-signal banner */}
       {noSignal&&(
         <div className="bg-accent-yellow/5 border-b border-accent-yellow/20 px-4 py-2 flex items-center gap-2">
           <AlertTriangle size={12} className="text-accent-yellow shrink-0"/>
@@ -186,7 +243,7 @@ function SetupCard({setup,eduMode,onCertify,certLoading,isTopPick}:{setup:any;ed
               {!noSignal&&<span className={`badge ${setupColor}`}>{setup.setup_type}</span>}
               <span className="badge badge-neutral text-[9px]">{setup.meta?.sector}</span>
               {setup.priceSource==='realtime'&&<span className="badge badge-green text-[8px]">Live</span>}
-              {setup.earningsDate&&<span className="badge badge-neutral text-[9px] flex items-center gap-1"><Calendar size={8}/>Earnings {setup.earningsDate}</span>}
+              {setup.earningsDate&&<span className="badge badge-neutral text-[9px] flex items-center gap-1"><Calendar size={8}/>Earnings {fmtDate(setup.earningsDate)}</span>}
             </div>
             <p className="text-xs text-secondary">{setup.meta?.description}</p>
           </div>
@@ -232,32 +289,30 @@ function SetupCard({setup,eduMode,onCertify,certLoading,isTopPick}:{setup:any;ed
           </div>
         )}
 
-        {/* Key moves — horizontal strip directly below chart */}
+        {/* Key moves — horizontal strip directly under chart */}
         {setup.keyMoves?.length>0&&(
           <div>
             <p className="text-[10px] text-muted uppercase tracking-wide font-semibold mb-1.5 flex items-center gap-1">⚡ Key moves (5%+)<T id="keyMoves"/></p>
-            <div className="flex gap-2 overflow-x-auto pb-1">
+            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
               {setup.keyMoves.map((m:any,i:number)=>(
-                <div key={i} className={`shrink-0 rounded-xl border px-3 py-2 min-w-40 max-w-56 ${m.pct>0?'bg-accent-green/5 border-accent-green/20':'bg-accent-red/5 border-accent-red/20'}`}>
+                <div key={i} className={`shrink-0 rounded-xl border px-3 py-2 min-w-44 max-w-60 ${m.pct>0?'bg-accent-green/5 border-accent-green/20':'bg-accent-red/5 border-accent-red/20'}`}>
                   <div className="flex items-center gap-2 mb-1">
                     <span className={`text-sm font-mono font-bold ${m.pct>0?'text-accent-green':'text-accent-red'}`}>{m.pct>0?'+':''}{m.pct}%</span>
-                    <span className="text-[9px] text-muted">{m.date}</span>
+                    <span className="text-[9px] text-muted">{fmtDate(m.date)}</span>
                     <span className="text-[9px] text-muted ml-auto">{m.volume_ratio}× vol</span>
                   </div>
-                  <p className="text-[10px] text-secondary leading-snug">{m.reason}</p>
+                  <p className="text-[10px] text-secondary leading-snug">{m.reason||'Significant price move — AI explanation loading'}</p>
                 </div>
               ))}
             </div>
-            {eduMode&&<p className="text-[10px] text-accent-green mt-1.5 italic">These past moves reveal what type of news causes explosive movement in this stock — watch for similar catalysts.</p>}
           </div>
         )}
 
-        {/* S&R + Trade levels */}
+        {/* Trade levels */}
         {levels&&!noSignal&&(
           <div className="bg-surface-2 rounded-xl p-3 border border-border">
             <p className="text-[10px] text-muted font-semibold uppercase tracking-wide mb-2">Trade Levels<T id="sr"/></p>
-
-            {/* Rumers Box levels */}
+            {/* PDH/PDL Rumers Box */}
             <div className="flex gap-2 mb-2">
               {[{l:'PDH',v:levels.pdh,tip:'pdh',c:'text-accent-yellow'},{l:'MidBox',v:levels.pdm,tip:'pdm',c:'text-muted'},{l:'PDL',v:levels.pdl,tip:'pdl',c:'text-accent-blue'}].map(r=>(
                 <div key={r.l} className="flex-1 text-center bg-surface-3 rounded-lg py-1.5 border border-border">
@@ -266,23 +321,30 @@ function SetupCard({setup,eduMode,onCertify,certLoading,isTopPick}:{setup:any;ed
                 </div>
               ))}
             </div>
-
-            <div className="space-y-1">
+            {/* Price stack */}
+            <div className="space-y-1 mb-2">
               {[
-                {label:'R1 / TP1',v:setup.tp1??levels.r1,type:'r',note:'Target 1'},
-                {label:'Entry',v:`$${setup.entryLo}–${setup.entryHi}`,type:'e',note:<>Entry zone<T id="entry"/></>},
+                {label:'TP1',v:setup.tp1,type:'r',note:<>Target 1<T id="tp1"/></>},
+                {label:'Entry',v:`$${setup.entryLo?.toFixed(2)}–$${setup.entryHi?.toFixed(2)}`,type:'e',note:<>Entry zone<T id="entry"/></>},
                 {label:'Price now',v:setup.price,type:'c',note:'Current price'},
                 {label:'Stop',v:setup.stop,type:'s',note:<>Stop-loss<T id="stop"/></>},
-                {label:'S1',v:levels.s1,type:'s',note:'Key support'},
+                {label:'S1',v:levels.s1,type:'s',note:'Pivot support'},
               ].map((row,i)=>(
-                <div key={i} className={`flex items-center gap-2 px-2 py-1 rounded-lg text-[11px] ${row.type==='c'?'bg-accent-green/10 border border-accent-green/30':row.type==='e'?'bg-accent-blue/10 border border-accent-blue/20':row.type==='r'?'border-l-2 border-accent-red/50':'border-l-2 border-accent-green/50'}`}>
+                <div key={i} className={`flex items-center gap-2 px-2 py-1 rounded-lg text-[11px] ${row.type==='c'?'bg-accent-green/10 border border-accent-green/30':row.type==='e'?'bg-accent-blue/10 border border-accent-blue/20':row.type==='r'?'border-l-2 border-accent-red/40':'border-l-2 border-accent-green/40'}`}>
                   <span className={`font-bold w-16 shrink-0 ${row.type==='c'?'text-accent-green':row.type==='e'?'text-accent-blue':row.type==='r'?'text-accent-red':'text-accent-green'}`}>{row.label}</span>
                   <span className="font-mono font-bold text-white">{typeof row.v==='number'?`$${row.v.toFixed(2)}`:row.v}</span>
                   <span className="text-muted text-[9px]">{row.note}</span>
                 </div>
               ))}
             </div>
-            <div className="flex gap-2 mt-2">
+            {/* R:R badge in trade levels */}
+            <div className="flex items-center justify-between bg-surface-3 rounded-lg px-3 py-2 border border-border mb-2">
+              <span className="text-[10px] text-muted">R:R ratio<T id="rr"/></span>
+              <span className="text-sm font-bold text-accent-yellow font-mono">1 : {liveRR}</span>
+              <span className="text-[9px] text-muted">Hold: {setup.holdDays}</span>
+            </div>
+            {/* Fibonacci */}
+            <div className="flex gap-2">
               {[{l:'Fib 38.2%',v:levels.fib382},{l:'Fib 50%',v:levels.fib500},{l:'Fib 61.8%',v:levels.fib618}].map(f=>(
                 <div key={f.l} className="text-center bg-surface-3 rounded-lg px-2 py-1.5 border border-border flex-1">
                   <p className="text-[8px] text-accent-yellow font-bold">{f.l}<T id="fib"/></p>
@@ -293,7 +355,7 @@ function SetupCard({setup,eduMode,onCertify,certLoading,isTopPick}:{setup:any;ed
           </div>
         )}
 
-        {/* Capital input + position sizing */}
+        {/* Position sizing — simplified, no redundant entry/stop/target */}
         {!noSignal&&(
           <div className="bg-surface-2 rounded-xl p-3 border border-border">
             <div className="flex items-center gap-3 mb-2">
@@ -305,37 +367,31 @@ function SetupCard({setup,eduMode,onCertify,certLoading,isTopPick}:{setup:any;ed
                   className="input w-28 text-xs font-mono py-1 px-2"/>
               </div>
             </div>
-            <div className="grid grid-cols-4 gap-2 text-center">
+            <div className="grid grid-cols-3 gap-2 text-center">
               {[
-                {l:'Entry',v:`$${liveEntry.toFixed(2)}`,c:'text-white',tip:'entry'},
-                {l:'Stop',v:`$${liveStop.toFixed(2)}`,c:'text-accent-red',tip:'stop'},
-                {l:'Target 1',v:`$${liveTp1.toFixed(2)}`,c:'text-accent-green',tip:'tp1'},
-                {l:`R:R 1:${setup.rr}`,v:setup.holdDays,c:'text-accent-yellow',tip:'rr'},
-                {l:'Shares',v:String(liveShares),c:'text-white',tip:'capital'},
-                {l:'Position',v:`$${livePos.toLocaleString()}`,c:'text-white',tip:'capital'},
-                {l:'Max loss',v:`$${liveLoss.toFixed(0)}`,c:'text-accent-red',tip:'capital'},
-                {l:'Target 2',v:`$${(liveEntry+atr*3.5).toFixed(2)}`,c:'text-accent-green',tip:'tp1'},
+                {l:'Shares to buy',v:String(liveShares),c:'text-white'},
+                {l:'Position value',v:`$${livePos.toLocaleString()}`,c:'text-white'},
+                {l:'Max loss (3%)',v:`$${liveLoss.toFixed(0)}`,c:'text-accent-red'},
               ].map(r=>(
-                <div key={r.l} className="bg-surface-3 rounded-xl p-2 border border-border">
-                  <p className="text-[8px] text-muted">{r.l}<T id={r.tip}/></p>
-                  <p className={`text-[11px] font-mono font-bold ${r.c}`}>{r.v}</p>
+                <div key={r.l} className="bg-surface-3 rounded-xl p-2.5 border border-border">
+                  <p className="text-[8px] text-muted">{r.l}</p>
+                  <p className={`text-sm font-mono font-bold ${r.c}`}>{r.v}</p>
                 </div>
               ))}
             </div>
-            {eduMode&&<p className="text-[10px] text-accent-green mt-2 italic">3% rule: max loss on this trade = ${(capital*0.03).toFixed(0)}. This is auto-calculated above. Never exceed this regardless of conviction.</p>}
+            {eduMode&&<p className="text-[10px] text-accent-green mt-2 italic">3% rule: max loss = ${(capital*0.03).toFixed(0)} on this trade. Shares auto-calculated from ATR-based stop distance.</p>}
           </div>
         )}
 
-        {/* Expand button */}
+        {/* Expand */}
         <button onClick={()=>setExpanded(e=>!e)} className="btn-secondary text-xs flex items-center gap-1.5 w-full justify-center">
-          {expanded?<ChevronUp size={12}/>:<ChevronDown size={12}/>}{expanded?'Hide analysis':'Full analysis — indicators, fundamentals, behavior'}
+          {expanded?<ChevronUp size={12}/>:<ChevronDown size={12}/>}{expanded?'Hide full analysis':'Full analysis — indicators · fundamentals · behavior'}
         </button>
       </div>
 
-      {/* Expanded */}
+      {/* Expanded section */}
       {expanded&&(
         <div className="border-t border-border p-4 space-y-4">
-
           {/* Core identity */}
           {setup.meta?.behavior&&(
             <div>
@@ -353,7 +409,7 @@ function SetupCard({setup,eduMode,onCertify,certLoading,isTopPick}:{setup:any;ed
           <div>
             <h4 className="text-xs font-bold text-white mb-2 flex items-center gap-1.5"><Activity size={12} className="text-accent-yellow"/>Volatility Profile</h4>
             <div className="grid grid-cols-3 gap-2">
-              {[{l:'ATR (daily $)',v:`$${ind.atr?.toFixed(2)??'N/A'}`},{l:'ATR %',v:`${ind.atrPct??0}%`},{l:'Avg daily',v:`±${setup.volatility?.avgDailyPct??0}%`}].map(r=>(
+              {[{l:'ATR (daily $)',v:`$${atr.toFixed(2)}`},{l:'ATR % of price',v:`${ind.atrPct??0}%`},{l:'Avg daily move',v:`±${setup.volatility?.avgDailyPct??0}%`}].map(r=>(
                 <div key={r.l} className="bg-surface-2 rounded-xl p-2.5 border border-border text-center">
                   <p className="text-[9px] text-muted">{r.l}<T id="atr"/></p>
                   <p className="text-sm font-mono font-bold text-accent-yellow">{r.v}</p>
@@ -362,29 +418,29 @@ function SetupCard({setup,eduMode,onCertify,certLoading,isTopPick}:{setup:any;ed
             </div>
           </div>
 
-          {/* Indicator gauges */}
+          {/* Indicators */}
           {ind.rsi!=null&&(
             <div>
               <h4 className="text-xs font-bold text-white mb-3">📈 Indicator Dashboard</h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
-                <Gauge label="RSI (14)" value={ind.rsi} min={0} max={100} zones={RSI_Z} tipKey="rsi" eduMode={eduMode} eduVal={ind.rsi} ticks={[{v:30,l:'30'},{v:50,l:'50'},{v:65,l:'65'},{v:78,l:'78'}]}/>
-                <Gauge label="Volume Ratio" value={Math.min(3,ind.volR??ind.ratio??1)} min={0} max={3} zones={VOL_Z} tipKey="volume" eduMode={eduMode} eduVal={ind.volR??ind.ratio} ticks={[{v:1,l:'1×'},{v:1.3,l:'1.3×'},{v:2,l:'2×'}]}/>
+                <Gauge label="RSI (14)" value={ind.rsi} min={0} max={100} zones={RSI_Z} tipKey="rsi" eduMode={eduMode} eduVal={ind.rsi} ticks={[{v:28,l:'28'},{v:42,l:'42'},{v:65,l:'65'},{v:75,l:'75'}]}/>
+                <Gauge label="Volume Ratio" value={Math.min(3,ind.volR??ind.ratio??1)} min={0} max={3} zones={VOL_Z} tipKey="volume" eduMode={eduMode} eduVal={ind.volR??ind.ratio} ticks={[{v:1,l:'1×'},{v:1.5,l:'1.5×'},{v:2,l:'2×'}]}/>
                 <Gauge label="ADX — Trend Strength" value={Math.min(60,ind.adx??20)} min={0} max={60} zones={ADX_Z} tipKey="adx" eduMode={eduMode} eduVal={ind.adx} ticks={[{v:20,l:'20'},{v:30,l:'30'},{v:50,l:'50'}]}/>
                 <Gauge label="Stochastic %K" value={ind.stochK??50} min={0} max={100} zones={STOCH_Z} tipKey="stoch" eduMode={eduMode} eduVal={ind.stochK} ticks={[{v:20,l:'20'},{v:50,l:'50'},{v:80,l:'80'}]}/>
               </div>
-              <div className="grid grid-cols-3 gap-2 mb-2">
+              {/* MACD + EMAs */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-2">
                 {[
-                  {l:'MACD',v:ind.macd?.bullish?'▲ Bullish':'▼ Bearish',c:ind.macd?.bullish?'text-accent-green':'text-accent-red',tip:'macd',edu:eduMode?EDU.macd(ind.macd):null},
-                  {l:'EMA-9',v:`$${ind.ema9??'—'}`,c:setup.price>(ind.ema9??0)?'text-accent-green':'text-accent-red',tip:'ema20',edu:null},
-                  {l:'EMA-20',v:`$${ind.ema20}`,c:setup.price>ind.ema20?'text-accent-green':'text-accent-red',tip:'ema20',edu:null},
-                  {l:'EMA-50',v:`$${ind.ema50}`,c:setup.price>ind.ema50?'text-accent-green':'text-accent-red',tip:'ema50',edu:null},
-                  {l:'EMA-20 slope',v:ind.ema20Rising?'▲ Rising':'▼ Flat/falling',c:ind.ema20Rising?'text-accent-green':'text-accent-yellow',tip:'ema20',edu:null},
-                  {l:'EMA stack',v:ind.fullEmaStack?'✓ Full align':'Partial',c:ind.fullEmaStack?'text-accent-green':'text-muted',tip:'ema20',edu:null},
+                  {l:'MACD (8/17/9)',v:ind.macd?.bullish?'▲ Bullish':'▼ Bearish',c:ind.macd?.bullish?'text-accent-green':'text-accent-red',tip:'macd'},
+                  {l:'EMA-9',v:ind.ema9?`$${ind.ema9}`:'N/A',c:setup.price>(ind.ema9??0)?'text-accent-green':'text-accent-red',tip:'ema9'},
+                  {l:'EMA-20',v:`$${ind.ema20}`,c:setup.price>ind.ema20?'text-accent-green':'text-accent-red',tip:'ema20'},
+                  {l:'EMA-50',v:`$${ind.ema50}`,c:setup.price>ind.ema50?'text-accent-green':'text-accent-red',tip:'ema50'},
+                  {l:'EMA-20 slope',v:ind.ema20Rising?'▲ Rising':'▼ Flat/falling',c:ind.ema20Rising?'text-accent-green':'text-accent-yellow',tip:'ema20'},
+                  {l:'EMA stack',v:ind.fullEmaStack?'✓ Full align':'Partial',c:ind.fullEmaStack?'text-accent-green':'text-muted',tip:'ema20'},
                 ].map(r=>(
                   <div key={r.l} className="bg-surface-2 rounded-xl p-2.5 border border-border">
                     <p className="text-[9px] text-muted">{r.l}<T id={r.tip}/></p>
                     <p className={`text-sm font-mono font-bold ${r.c}`}>{r.v}</p>
-                    {r.edu&&<p className="text-[9px] text-accent-green mt-1 italic">{r.edu}</p>}
                   </div>
                 ))}
               </div>
@@ -435,7 +491,7 @@ function SetupCard({setup,eduMode,onCertify,certLoading,isTopPick}:{setup:any;ed
                   <div key={r.l} className={`rounded-xl p-2.5 border text-center ${r.hi?'bg-accent-green/10 border-accent-green/25':'bg-surface-2 border-border'}`}>
                     <p className="text-[9px] text-muted">{r.l}</p>
                     <p className={`text-sm font-mono font-bold ${r.hi?'text-accent-green':'text-white'}`}>{r.v}</p>
-                    {r.hi&&r.up!=null&&<p className={`text-[9px] font-bold ${(r.up??0)>=0?'text-accent-green':'text-accent-red'}`}>{(r.up??0)>=0?'+':''}{r.up}%</p>}
+                    {r.hi&&r.up!=null&&<p className={`text-[9px] font-bold ${(r.up??0)>=0?'text-accent-green':'text-accent-red'}`}>{(r.up??0)>=0?'+':''}{r.up}% upside</p>}
                   </div>
                 ))}
               </div>
@@ -443,6 +499,43 @@ function SetupCard({setup,eduMode,onCertify,certLoading,isTopPick}:{setup:any;ed
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Right educational panel ───────────────────────────────────────────────────
+function EduPanel({onClose}:{onClose:()=>void}){
+  const[active,setActive]=useState('setup');
+  const section=EDU_SECTIONS.find(s=>s.id===active)??EDU_SECTIONS[0];
+  return(
+    <div className="fixed top-0 right-0 h-full w-80 bg-surface-1 border-l border-border z-50 flex flex-col shadow-2xl">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+        <p className="text-sm font-bold text-white flex items-center gap-2"><BookOpen size={14} className="text-accent-green"/>Trading Guide</p>
+        <button onClick={onClose} className="text-muted hover:text-white transition-colors"><X size={16}/></button>
+      </div>
+      {/* Section tabs */}
+      <div className="flex flex-col gap-0.5 p-2 border-b border-border">
+        {EDU_SECTIONS.map(s=>(
+          <button key={s.id} onClick={()=>setActive(s.id)}
+            className={`text-left px-3 py-2 rounded-lg text-xs font-semibold transition-colors ${active===s.id?'bg-accent-green/10 text-accent-green':'text-secondary hover:text-white hover:bg-surface-2'}`}>
+            {s.label}
+          </button>
+        ))}
+      </div>
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <p className="text-[11px] text-secondary leading-relaxed italic border-l-2 border-accent-green/30 pl-3">{section.intro}</p>
+        {section.items.map((item,i)=>(
+          <div key={i} className="bg-surface-2 rounded-xl p-3 border border-border space-y-1.5">
+            <p className="text-[11px] font-bold text-white">{item.t}</p>
+            <p className="text-[10px] text-secondary leading-relaxed">{item.d}</p>
+            <div className="bg-surface-3 rounded-lg p-2 border border-border">
+              <p className="text-[9px] text-accent-green font-semibold mb-0.5">Example</p>
+              <p className="text-[10px] text-muted leading-relaxed">{item.ex}</p>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -467,6 +560,7 @@ export default function TradingAgentPage(){
   const[loading,setLoading]=useState(false);
   const[error,setError]=useState<string|null>(null);
   const[eduMode,setEduMode]=useState(()=>{try{return localStorage.getItem('ziqron_edu')!=='off';}catch{return true;}});
+  const[showEduPanel,setShowEduPanel]=useState(false);
   const[certLoading,setCertLoading]=useState<string|null>(null);
   const debounceRef=useRef<ReturnType<typeof setTimeout>|null>(null);
   const searchRef=useRef<HTMLDivElement>(null);
@@ -510,22 +604,28 @@ export default function TradingAgentPage(){
 
   return(
     <div className="space-y-5 page-enter">
+      {/* Edu panel overlay */}
+      {showEduPanel&&<EduPanel onClose={()=>setShowEduPanel(false)}/>}
+      {showEduPanel&&<div className="fixed inset-0 bg-black/40 z-40" onClick={()=>setShowEduPanel(false)}/>}
 
       {/* Gharar disclaimer */}
       <div className="bg-accent-green/5 border border-accent-green/20 rounded-xl p-4">
         <p className="text-xs font-bold text-accent-green mb-1">🕌 تَوَكَّلْ عَلَى اللَّه — Due Diligence is a Religious Obligation</p>
-        <p className="text-[11px] text-secondary leading-relaxed">Islam prohibits <strong className="text-white">gharar</strong> — transactions based on excessive uncertainty or blind speculation. Every signal here is a tool for informed analysis, not a directive to buy. Verify halal status, understand what you own, and never invest money you cannot afford to lose. The Prophet ﷺ said: <em>"Tie your camel, then put your trust in Allah."</em></p>
+        <p className="text-[11px] text-secondary leading-relaxed">Islam prohibits <strong className="text-white">gharar</strong> — excessive uncertainty or blind speculation. Every signal here is a tool for informed analysis, not a directive to buy. Verify halal status, understand what you own, and never invest money you cannot afford to lose.</p>
       </div>
 
       {/* Header */}
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-white flex items-center gap-2"><Zap size={20} className="text-accent-green"/>Short-Term Trading Agent</h1>
-          <p className="text-secondary text-sm mt-0.5">200+ halal stocks · 6 price tiers · Live price · PDH/PDL levels · AI behavior profiles</p>
+          <p className="text-secondary text-sm mt-0.5">200+ halal stocks · live price · PDH/PDL · AI behavior · batched key move explanations</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <a href="/learn" className="btn-secondary flex items-center gap-1.5 text-xs"><BookOpen size={13}/>Learning Hub</a>
-          <button onClick={toggleEdu} className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-sm font-semibold transition-all ${eduMode?'bg-accent-green/10 border-accent-green/30 text-accent-green':'border-border text-muted hover:text-white'}`}>
+          <button onClick={()=>setShowEduPanel(p=>!p)} className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-semibold transition-all ${showEduPanel?'bg-accent-green/10 border-accent-green/30 text-accent-green':'border-border text-muted hover:text-white'}`}>
+            <PanelRight size={13}/>Trading Guide
+          </button>
+          <button onClick={toggleEdu} className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-semibold transition-all ${eduMode?'bg-accent-green/10 border-accent-green/30 text-accent-green':'border-border text-muted hover:text-white'}`}>
             {eduMode?'📚 ON':'📚 OFF'}
           </button>
         </div>
@@ -534,7 +634,7 @@ export default function TradingAgentPage(){
       {/* Controls */}
       <div className="card p-4 space-y-4">
         <div className="grid grid-cols-2 gap-2">
-          {[{id:'auto',l:'🔍 Auto Scan',s:'Scan halal universe'},{id:'manual',l:'🎯 Evaluate Ticker',s:'Enter any stock'}].map(m=>(
+          {[{id:'auto',l:'🔍 Auto Scan',s:'Scan 200+ halal universe'},{id:'manual',l:'🎯 Evaluate Ticker',s:'Enter any stock symbol'}].map(m=>(
             <button key={m.id} onClick={()=>setMode(m.id as 'auto'|'manual')} className={`rounded-xl p-3 border text-left transition-all ${mode===m.id?'bg-accent-green/10 border-accent-green/30':'border-border hover:bg-surface-2'}`}>
               <p className={`text-sm font-bold ${mode===m.id?'text-accent-green':'text-white'}`}>{m.l}</p>
               <p className="text-[10px] text-muted">{m.s}</p>
@@ -548,7 +648,7 @@ export default function TradingAgentPage(){
               <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted"/>
               <input value={manualTicker} onChange={e=>handleManualInput(e.target.value)}
                 onKeyDown={e=>e.key==='Enter'&&scan()} onFocus={()=>suggestions.length>0&&setShowSuggest(true)}
-                placeholder="HIMS, ZETA, ALAB, NVO…" className="input w-full pl-9 font-mono" autoComplete="off"/>
+                placeholder="HIMS, ALAB, NVO, CRDO…" className="input w-full pl-9 font-mono" autoComplete="off"/>
             </div>
             {showSuggest&&suggestions.length>0&&(
               <div className="absolute top-11 left-0 w-64 bg-surface-2 border border-border rounded-xl shadow-xl z-50 overflow-hidden">
@@ -564,7 +664,7 @@ export default function TradingAgentPage(){
         )}
 
         <div>
-          <p className="text-[10px] text-muted uppercase tracking-wide mb-2 font-semibold">Price Range — select one</p>
+          <p className="text-[10px] text-muted uppercase tracking-wide mb-2 font-semibold">Price Range — all universe stocks are scanned, filtered by actual price</p>
           <div className="flex flex-wrap gap-2">
             {RANGES.map(r=>(
               <button key={r.id} onClick={()=>setPriceRange(r.id)}
@@ -577,7 +677,7 @@ export default function TradingAgentPage(){
         </div>
 
         <button onClick={scan} disabled={loading} className="btn-primary w-full flex items-center justify-center gap-2">
-          {loading?<><Loader2 size={14} className="animate-spin"/>Scanning…</>:<><Zap size={14}/>{mode==='manual'&&manualTicker?`Evaluate ${manualTicker}`:`Scan ${RANGES.find(r=>r.id===priceRange)?.label??''} Range`}</>}
+          {loading?<><Loader2 size={14} className="animate-spin"/>Scanning all universe stocks…</>:<><Zap size={14}/>{mode==='manual'&&manualTicker?`Evaluate ${manualTicker}`:`Scan ${RANGES.find(r=>r.id===priceRange)?.label??''} Range`}</>}
         </button>
       </div>
 
@@ -585,32 +685,30 @@ export default function TradingAgentPage(){
 
       {result&&!loading&&(
         <div className="space-y-4">
-          {/* Summary */}
           <div className="flex items-center justify-between flex-wrap gap-2 px-1">
             {result.signal==='SETUPS_FOUND'?(
-              <><p className="text-sm font-semibold text-white">Found <span className="text-accent-green">{result.found}</span> setup{result.found!==1?'s':''} · <span className="text-accent-green">{result.scanned}</span> scanned</p>
+              <><p className="text-sm font-semibold text-white">Found <span className="text-accent-green">{result.found}</span> setup{result.found!==1?'s':''} · <span className="text-accent-green">{result.scanned}</span> in price range</p>
               <div className="flex items-center gap-2"><span className="text-[10px] text-muted">{new Date(result.generated_at).toLocaleTimeString()}</span><button onClick={scan} className="btn-ghost text-xs flex items-center gap-1"><RefreshCw size={11}/>Refresh</button></div></>
             ):result.signal==='NO_SIGNAL'?(
-              <p className="text-sm text-accent-yellow">Full analysis below — stock does not meet signal criteria right now</p>
+              <p className="text-sm text-accent-yellow">Full card shown — stock doesn't qualify right now</p>
             ):(
               <div className="w-full"><p className="text-sm font-semibold text-accent-yellow mb-1">🛡️ No setups today — capital preserved</p>
               <p className="text-xs text-secondary">{result.reason}</p>
-              {result.reject_sample?.length>0&&<p className="text-[10px] text-muted mt-1.5">Sample: {result.reject_sample.join(' · ')}</p>}</div>
+              {result.reject_sample?.length>0&&<p className="text-[10px] text-muted mt-1.5">Sample rejections: {result.reject_sample.join(' · ')}</p>}</div>
             )}
           </div>
 
-          {/* Pick One intelligence */}
+          {/* Pick One */}
           {result.pickOne&&result.setups?.length>1&&(
             <div className="bg-surface-2 border border-accent-green/25 rounded-xl p-4 flex items-start gap-3">
               <Trophy size={16} className="text-accent-green shrink-0 mt-0.5"/>
               <div>
-                <p className="text-xs font-bold text-accent-green mb-1">🏆 If You Can Only Pick One:</p>
+                <p className="text-xs font-bold text-accent-green mb-1">🏆 If You Can Only Pick One Today:</p>
                 <p className="text-xs text-secondary leading-relaxed">{result.pickOne}</p>
               </div>
             </div>
           )}
 
-          {/* Cards */}
           {result.setups?.map((s:any,i:number)=>(
             <SetupCard key={s.ticker} setup={s} eduMode={eduMode} onCertify={certify} certLoading={certLoading} isTopPick={i===0&&result.setups.length>1&&!s.no_signal}/>
           ))}
@@ -621,7 +719,7 @@ export default function TradingAgentPage(){
         <div className="flex flex-col items-center py-20 text-center">
           <Zap size={36} className="text-muted mb-3"/>
           <h2 className="text-base font-semibold text-white mb-1">Select a range and run the scan</h2>
-          <p className="text-xs text-secondary max-w-sm">200+ halal stocks · Alpaca SIP real-time data · RSI, MACD, volume, ATR, EMA signals · PDH/PDL levels · AI behavior profiles · Key historical moves explained</p>
+          <p className="text-xs text-secondary max-w-sm">All 200+ halal-certified stocks are scanned regardless of tier — your selected price range filters results by actual current market price from Alpaca SIP.</p>
         </div>
       )}
     </div>
