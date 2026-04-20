@@ -362,8 +362,6 @@ export function EarlyAccessSection({ userEmail }: { userEmail: string }) {
   const [selectedMods, setSelectedMods] = useState<string[]>(ALL_MODULES.map(m => m.id));
   const [inviting, setInviting]     = useState(false);
   const [newPassword, setNewPassword] = useState('');
-  const [editingUser, setEditingUser] = useState<string | null>(null);
-  const [editMods, setEditMods]     = useState<string[]>([]);
   const [error, setError]           = useState('');
 
   async function loadUsers() {
@@ -386,7 +384,12 @@ export function EarlyAccessSection({ userEmail }: { userEmail: string }) {
     });
     const json = await res.json();
     if (json.error) { setError(json.error); }
-    else { setNewPassword(json.password); setInviteEmail(''); loadUsers(); }
+    else if (json.already_existed) {
+      setNewPassword('');
+      setError('');
+      // User already existed in auth — their module access has been updated
+      loadUsers();
+    } else { setNewPassword(json.password ?? ''); setInviteEmail(''); loadUsers(); }
     setInviting(false);
   }
 
@@ -396,8 +399,8 @@ export function EarlyAccessSection({ userEmail }: { userEmail: string }) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, modules }),
     });
-    setEditingUser(null);
-    loadUsers();
+    // Optimistic update: update local state immediately so toggles feel instant
+    setUsers(prev => prev.map(u => u.email === email ? { ...u, modules } : u));
   }
 
   async function removeUser(email: string) {
@@ -458,6 +461,13 @@ export function EarlyAccessSection({ userEmail }: { userEmail: string }) {
         {error && <p className="text-xs text-accent-red bg-accent-red/10 border border-accent-red/20 rounded-lg px-3 py-2">{error}</p>}
       </div>
 
+      {/* Success message for already-existing user */}
+      {!newPassword && !error && users.length > 0 && (
+        <div className="bg-surface-2 border border-border rounded-xl p-3">
+          <p className="text-xs text-secondary">Module access updated successfully.</p>
+        </div>
+      )}
+
       {/* Generated password display */}
       {newPassword && (
         <div className="bg-accent-green/5 border border-accent-green/25 rounded-xl p-4">
@@ -485,53 +495,52 @@ export function EarlyAccessSection({ userEmail }: { userEmail: string }) {
         ) : (
           <div className="space-y-3">
             {users.map(u => (
-              <div key={u.email} className="bg-surface-2 rounded-xl p-3 border border-border">
-                <div className="flex items-center justify-between gap-2 mb-2">
-                  <p className="text-sm font-mono text-white truncate">{u.email}</p>
-                  <div className="flex gap-1.5 shrink-0">
-                    <button onClick={() => { setEditingUser(u.email); setEditMods(u.modules ?? []); }}
-                      className="text-[10px] px-2 py-1 rounded border border-border text-muted hover:text-white transition-colors">
-                      Edit
-                    </button>
-                    <button onClick={() => removeUser(u.email)}
-                      className="text-[10px] px-2 py-1 rounded border border-accent-red/30 text-accent-red hover:bg-accent-red/10 transition-colors">
-                      Remove
-                    </button>
+              <div key={u.email} className="bg-surface-2 rounded-xl border border-border overflow-hidden">
+                {/* User header */}
+                <div className="flex items-center justify-between gap-2 px-3 py-2.5 border-b border-border">
+                  <div className="min-w-0">
+                    <p className="text-xs font-mono text-white truncate">{u.email}</p>
+                    <p className="text-[9px] text-muted">Added {new Date(u.created_at).toLocaleDateString('en-US', {month:'short',day:'numeric',year:'numeric'})}</p>
+                  </div>
+                  <button onClick={() => removeUser(u.email)}
+                    className="text-[10px] px-2 py-1 rounded border border-accent-red/30 text-accent-red hover:bg-accent-red/10 transition-colors shrink-0">
+                    Remove
+                  </button>
+                </div>
+                {/* Module toggles — inline, always visible */}
+                <div className="p-3">
+                  <p className="text-[9px] text-muted uppercase tracking-wide mb-2">Module access</p>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {ALL_MODULES.map(m => {
+                      const hasAccess = (u.modules ?? []).includes(m.id);
+                      return (
+                        <button key={m.id}
+                          onClick={async () => {
+                            const newMods = hasAccess
+                              ? (u.modules ?? []).filter((x: string) => x !== m.id)
+                              : [...(u.modules ?? []), m.id];
+                            await updateModules(u.email, newMods);
+                          }}
+                          className={`flex items-center justify-between px-2 py-1.5 rounded-lg border text-left transition-all ${
+                            hasAccess
+                              ? 'bg-accent-green/8 border-accent-green/25 text-accent-green'
+                              : 'border-border text-muted hover:text-white'
+                          }`}>
+                          <span className="text-[10px] font-medium">{m.label}</span>
+                          <span className={`w-7 h-3.5 rounded-full relative shrink-0 ml-1 transition-colors ${hasAccess ? 'bg-accent-green' : 'bg-surface-4'}`}>
+                            <span className={`absolute top-0.5 w-2.5 h-2.5 rounded-full bg-white shadow-sm transition-all ${hasAccess ? 'left-4' : 'left-0.5'}`}/>
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className="flex gap-2 mt-2 pt-2 border-t border-border">
+                    <button onClick={() => updateModules(u.email, ALL_MODULES.map(m => m.id))}
+                      className="text-[10px] text-accent-green hover:underline">Enable all</button>
+                    <button onClick={() => updateModules(u.email, [])}
+                      className="text-[10px] text-muted hover:text-accent-red hover:underline">Disable all</button>
                   </div>
                 </div>
-                {editingUser === u.email ? (
-                  <div className="space-y-2">
-                    <div className="flex flex-wrap gap-1.5">
-                      {ALL_MODULES.map(m => (
-                        <button key={m.id} onClick={() => setEditMods(prev => toggleMod(prev, m.id))}
-                          className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
-                            editMods.includes(m.id)
-                              ? 'bg-accent-green/10 border-accent-green/30 text-accent-green'
-                              : 'border-border text-muted'
-                          }`}>
-                          {m.label}
-                        </button>
-                      ))}
-                    </div>
-                    <div className="flex gap-2">
-                      <button onClick={() => updateModules(u.email, editMods)}
-                        className="btn-primary text-xs py-1.5 px-3 flex-1">Save</button>
-                      <button onClick={() => setEditingUser(null)}
-                        className="btn-secondary text-xs py-1.5 px-3">Cancel</button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex flex-wrap gap-1">
-                    {(u.modules ?? []).map((mid: string) => (
-                      <span key={mid} className="text-[9px] bg-surface-3 border border-border text-secondary px-1.5 py-0.5 rounded">
-                        {ALL_MODULES.find(m => m.id === mid)?.label ?? mid}
-                      </span>
-                    ))}
-                  </div>
-                )}
-                {u.invited_by && (
-                  <p className="text-[9px] text-muted mt-1.5">Invited {new Date(u.created_at).toLocaleDateString('en-US')}</p>
-                )}
               </div>
             ))}
           </div>

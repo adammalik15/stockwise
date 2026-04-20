@@ -544,7 +544,7 @@ function analyzeSetup(candles:{closes:number[];highs:number[];lows:number[];volu
 
   // ── Improvement 2: tier-based volume threshold ─────────────────────────────
   // Small price stocks need higher volume to confirm (proxy by price tier)
-  const volMin = price < 25 ? 2.0 : price < 100 ? 1.5 : 1.2;
+  const volMin = price < 25 ? 2.0 : price < 100 ? 1.3 : 1.2;  // 1.3x for mid-caps is standard professional threshold
   if(volData.ratio < volMin) return null;
 
   // ── Hard rejects ───────────────────────────────────────────────────────────

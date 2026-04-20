@@ -77,20 +77,34 @@ export async function POST(request: NextRequest) {
     email_confirm: true,
   });
 
-  if (authError && !authError.message.includes('already registered')) {
+  // If user already exists in Auth, look up their ID; otherwise use the newly created ID
+  let authUserId: string | null = authData?.user?.id ?? null;
+  if (authError?.message?.includes('already registered')) {
+    // User exists — look up their ID so we can link the access record
+    const { data: existingUsers } = await adminSupa.auth.admin.listUsers();
+    const existing = existingUsers?.users?.find((u: any) => u.email === email);
+    authUserId = existing?.id ?? null;
+    // Don't return an error — just update their access record with new modules
+  } else if (authError) {
     return NextResponse.json({ error: authError.message }, { status: 500 });
   }
 
-  // Upsert access record
+  // Upsert access record — works for both new and existing users
   const { error: dbError } = await supabase.from('user_access').upsert({
     email,
     modules,
     invited_by: ADMIN_EMAIL,
-    auth_user_id: authData?.user?.id ?? null,
+    auth_user_id: authUserId,
   }, { onConflict: 'email' });
 
   if (dbError) return NextResponse.json({ error: dbError.message }, { status: 500 });
-  return NextResponse.json({ success: true, password });
+  
+  const isExisting = !!authError?.message?.includes('already registered');
+  return NextResponse.json({ 
+    success: true, 
+    password: isExisting ? null : password,
+    already_existed: isExisting,
+  });
 }
 
 // ── PATCH: update user modules ────────────────────────────────────────────────
