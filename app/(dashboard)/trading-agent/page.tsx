@@ -22,7 +22,7 @@ function fmtDate(d:string|null|undefined):string{
 
 // ── Tooltip text ──────────────────────────────────────────────────────────────
 const TIPS: Record<string,string> = {
-  confidence:'Score 1–10: how many of our signal criteria this setup meets. 4 = minimum to qualify. 6+ = strong. 8+ = high conviction.',
+  confidence:'Score 1–10: how many signal criteria this setup meets. Strict mode requires 4+ factors, Broader mode requires 3+. 7+ = strong conviction. 9-10 = rare high-quality setup.',
   rsi:      'RSI (0–100): 0–30 = oversold (watch for bounce) · 30–50 = neutral · 50–65 = healthy momentum ✓ · 65–75 = elevated · 75+ = overbought (we reject these).',
   macd:     'MACD 8/17/9: faster version of the classic indicator. Bullish = short-term EMA crossing above long-term, with histogram expanding. Zero-line filter prevents weak signals.',
   atr:      'ATR (Average True Range): how much the stock moves on a typical day in dollars. Stop = 1.5×ATR below entry. Target 1 = 2×ATR above entry.',
@@ -111,28 +111,6 @@ const EDU_SECTIONS = [
   },
 ];
 
-// ── SectionGuide component ───────────────────────────────────────────────────
-function SectionGuide({sectionId, show}:{sectionId:string; show:boolean}){
-  if(!show)return null;
-  const section=EDU_SECTIONS.find(s=>s.id===sectionId);
-  if(!section)return null;
-  return(
-    <div className="bg-surface-2 rounded-xl p-4 border border-border space-y-3">
-      <h3 className="text-sm font-bold text-white">{section.label}</h3>
-      <p className="text-[11px] text-secondary leading-relaxed">{section.intro}</p>
-      <div className="space-y-2">
-        {section.items.map((item,i)=>(
-          <div key={i} className="border-l-2 border-accent-green/30 pl-3">
-            <p className="text-[11px] font-semibold text-accent-green">{item.t}</p>
-            <p className="text-[10px] text-secondary leading-relaxed mb-1">{item.d}</p>
-            <p className="text-[9px] text-muted italic">{item.ex}</p>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 // ── Gauge component ───────────────────────────────────────────────────────────
 interface Zone{from:number;to:number;hex:string;alpha:number}
 function Gauge({label,value,min,max,zones,ticks,tipKey,eduMode,eduVal}:{label:string;value:number;min:number;max:number;zones:Zone[];ticks:{v:number;l:string}[];tipKey:string;eduMode:boolean;eduVal?:any}){
@@ -203,7 +181,88 @@ function HalalBadge({setup,onCertify,certLoading,canEdit}:{setup:any;onCertify:(
 function fmtDollars(n:number|null){if(n==null)return'N/A';const abs=Math.abs(n);if(abs>=1e9)return`$${(n/1e9).toFixed(1)}B`;if(abs>=1e6)return`$${(n/1e6).toFixed(0)}M`;if(abs>=1e3)return`$${(n/1e3).toFixed(0)}K`;return`$${n}`;}
 function fmtVol(n:number){if(!n)return'N/A';if(n>=1e9)return`${(n/1e9).toFixed(1)}B`;if(n>=1e6)return`${(n/1e6).toFixed(1)}M`;if(n>=1e3)return`${(n/1e3).toFixed(0)}K`;return String(n);}
 
-// ── Setup card ────────────────────────────────────────────────────────────────
+
+// ── Per-section guide content ─────────────────────────────────────────────────
+const GUIDE_BOXES: Record<string,{title:string;color:string;items:{t:string;d:string;ex:string}[]}> = {
+  setup:{
+    title:'📊 Signal & Setup',color:'accent-green',
+    items:[
+      {t:'Strict vs Broader Mode',d:'Strict (4 factors) = fewer signals, all highly confirmed. Broader (3 factors) = more signals, slightly lower conviction. Use Broader in trending markets, Strict when uncertain.',ex:'Strict: volume ✓ + EMA ✓ + RSI ✓ + MACD ✓ = qualify. Broader: volume ✓ + EMA ✓ + RSI ✓ = qualify.'},
+      {t:'Momentum Breakout',d:'Price breaks above 20-day high on strong volume. Buy-stop entry above current price confirms the break before you commit capital.',ex:'NVDA at $105, 20-day high $104 → entry $105.35 (ATR×0.10 above). Stop $102. Target $109.'},
+      {t:'Dip Buy Reversal',d:'Stock pulled back hard (RSI < 42). Limit order slightly below current price confirms the bounce rather than chasing.',ex:'HIMS drops from $32 → $27, RSI 36 → dip entry $26.73. Stop $24.80. Target $30.20.'},
+      {t:'Confidence Score',d:'Each qualifying factor adds 1 point. Volume always gives 1. Strict mode needs 4+, Broader needs 3+. 7+ = strong. 9–10 = rare high-conviction.',ex:'Score 5: volume ✓, EMA aligned ✓, RSI healthy ✓, MACD bullish ✓, catalyst ✓.'},
+    ],
+  },
+  levels:{
+    title:'📐 Trade Levels',color:'accent-blue',
+    items:[
+      {t:'Entry Zone',d:'ATR-scaled entry. Breakout = price + ATR×0.10 (confirms break). Dip = price − ATR×0.15 (better price). Never chase beyond this zone.',ex:'$50 stock, ATR $2 → Breakout entry $50.20. Dip entry $49.70.'},
+      {t:'PDH / PDL (Rumers Box)',d:"Previous Day High/Low = today's key reference. Price above PDH = bullish session. Middle zone = indecision, avoid entries here.",ex:'PDH $52, PDL $48 → stock holding above $52 = session strength confirmed.'},
+      {t:'Stop & Targets',d:'Stop = 1.5×ATR below entry (non-negotiable). TP1 = 2×ATR above. At TP1, move stop to breakeven — risk-free trade from that point.',ex:"Entry $50, ATR $2 → Stop $47, TP1 $54. At $54 move stop to $50. Can't lose."},
+      {t:'R:R Ratio',d:'Risk:Reward = (TP1−Entry) ÷ (Entry−Stop). Need minimum 1:1. Our system targets ~1:1.3. At 43% win rate, 1:1.3 R:R breaks even.',ex:'Risk $3, target $4 → R:R 1:1.33. Win just 43% of trades to break even.'},
+    ],
+  },
+  indicators:{
+    title:'📈 Indicators',color:'accent-yellow',
+    items:[
+      {t:'RSI Zones',d:'28–42 = genuinely oversold (dip buy zone). 50–65 = healthy momentum (breakout zone). 42–50 = neutral, no edge. Above 75 = rejected.',ex:'RSI 36 + price above EMA-20 = dip buy setup. RSI 58 = momentum buy zone.'},
+      {t:'MACD (8/17/9)',d:'Faster than standard 12/26/9. Zero-line filter: only bullish when histogram expanding AND MACD line not deeply negative.',ex:'Histogram turning from −0.05 to +0.03 with MACD line near zero = early momentum signal.'},
+      {t:'Volume Tiers',d:'Small stocks < $25 need 2×+ avg volume. Mid caps need 1.5×+. Large caps need 1.2×+. Low-volume breakouts fail 70%+ of the time.',ex:'RKLB (small) at 1.4× = too weak. NVDA (large) at 1.3× = confirmed ✓.'},
+      {t:'EMA Stack + ADX',d:'Full stack = price > EMA-9 > EMA-20, with rising EMA-20. ADX > 20 required for breakouts — below 20 means sideways chop, setups fail.',ex:'Price $100, EMA-9 $98, EMA-20 $95 stacked, ADX 28 → full confirmation ✓.'},
+    ],
+  },
+  fundamentals:{
+    title:'📊 Fundamentals',color:'accent-green',
+    items:[
+      {t:'Revenue & Margins',d:'Revenue TTM = annual sales. Gross profit = after cost of goods. Net income = after all expenses. Growing margins = improving business quality.',ex:'Rev $10B, Gross profit $7B (70%) = pricing power. Net income $2B (20%) = profitable.'},
+      {t:'P/E & Beta',d:'P/E shows what investors pay per $1 profit — compare within sector only. Beta shows market amplification — Beta 2 = twice S&P 500 moves.',ex:'SaaS P/E 45 = normal for growth. Beta 1.8 stock with $10k position = $18k effective exposure.'},
+      {t:'Analyst Target',d:'Wall Street 12-month consensus price target. Upside % = room from current price to target. Always verify — targets lag price action.',ex:'Stock at $80, consensus target $110 = 37.5% upside. Often revised up after the move happens.'},
+      {t:'Short Interest',d:'% of shares sold short. High short interest + rising price = short squeeze potential — shorts must buy to cover, amplifying the move.',ex:'Stock at 22% short interest starts rising sharply → shorts forced to buy → squeeze amplifies.'},
+    ],
+  },
+  position:{
+    title:'💰 Position Sizing',color:'accent-yellow',
+    items:[
+      {t:'3% Risk Rule',d:'Never risk more than 3% of total capital on one trade. This is your MAX LOSS (shares × stop distance), not the position size.',ex:'$10,000 capital × 3% = $300 max loss. ATR $2, stop $3 away → shares = $300÷$3 = 100 shares.'},
+      {t:'Full Allocation',d:'How many shares your full capital buys at entry price. Compare with 3% rule to understand the difference between risk-sizing and full allocation.',ex:'$10,000 ÷ $50 entry = 200 shares full alloc. 3% rule gives 100 shares. Use 100 to cap risk.'},
+      {t:'Why This Matters',d:'Losing 10 trades in a row at 3% risk = lost 30% of capital (recoverable). At 10% per trade × 10 losses = down 65% (very hard to recover).',ex:'$10,000: 3% rule after 10 losses = $9,000 remaining. 10% rule after 10 losses = $3,487 remaining.'},
+    ],
+  },
+};
+
+function SectionGuide({sectionId,show}:{sectionId:string;show:boolean}){
+  if(!show)return null;
+  const guide=GUIDE_BOXES[sectionId];
+  if(!guide)return null;
+  const colorMap:Record<string,string>={
+    'accent-green':'border-accent-green/25 bg-accent-green/5',
+    'accent-blue':'border-accent-blue/25 bg-accent-blue/5',
+    'accent-yellow':'border-accent-yellow/25 bg-accent-yellow/5',
+  };
+  const textMap:Record<string,string>={
+    'accent-green':'text-accent-green',
+    'accent-blue':'text-accent-blue',
+    'accent-yellow':'text-accent-yellow',
+  };
+  return(
+    <div className={`rounded-xl border flex flex-col overflow-hidden ${colorMap[guide.color]??'border-border bg-surface-2'}`}
+         style={{maxHeight:'min(420px, calc(100% + 0px))'}}>
+      <p className={`text-[11px] font-bold px-3 pt-3 pb-2 shrink-0 border-b border-white/5 ${textMap[guide.color]??'text-white'}`}>{guide.title}</p>
+      <div className="overflow-y-auto flex-1 p-3 space-y-3" style={{scrollbarWidth:'thin'}}>
+        {guide.items.map((item,i)=>(
+          <div key={i}>
+            <p className="text-[10px] font-semibold text-white">{item.t}</p>
+            <p className="text-[10px] text-secondary leading-relaxed">{item.d}</p>
+            <div className="mt-1 bg-surface-3/80 rounded p-1.5 border border-border/50">
+              <p className="text-[9px] text-muted italic">{item.ex}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── Setup card ────────────────────────────────────────────────────────────────
 function SetupCard({setup,eduMode,onCertify,certLoading,isTopPick,showGuide}:{
   setup:any;eduMode:boolean;onCertify:(t:string,v:string)=>void;
@@ -578,6 +637,7 @@ export default function TradingAgentPage(){
   const[suggestions,setSuggestions]=useState<any[]>([]);
   const[showSuggest,setShowSuggest]=useState(false);
   const[priceRange,setPriceRange]=useState('medium');
+  const[minScore,setMinScore]=useState<3|4>(4);
   const[result,setResult]=useState<any>(null);
   const[loading,setLoading]=useState(false);
   const[error,setError]=useState<string|null>(null);
@@ -614,7 +674,7 @@ export default function TradingAgentPage(){
   const scan=useCallback(async()=>{
     setLoading(true);setError(null);setResult(null);
     try{
-      const body:any={price_range:priceRange,capital:10000};
+      const body:any={price_range:priceRange,capital:10000,min_score:minScore};
       if(mode==='manual'&&manualTicker.trim())body.specific_ticker=manualTicker.trim();
       const res=await fetch('/api/trading-agent',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
       const json=await res.json();
@@ -698,6 +758,24 @@ export default function TradingAgentPage(){
               )}
             </div>
           )}
+
+          {/* Signal Sensitivity */}
+          <div>
+            <p className="text-[10px] text-muted uppercase tracking-wide mb-2 font-semibold">Signal Sensitivity</p>
+            <div className="grid grid-cols-2 gap-2">
+              {([
+                {v:4,l:'🎯 Strict',sub:'4+ factors required · fewer, higher quality setups'},
+                {v:3,l:'🔍 Broader',sub:'3+ factors required · more results, slightly lower conviction'},
+              ] as {v:3|4;l:string;sub:string}[]).map(opt=>(
+                <button key={opt.v} onClick={()=>setMinScore(opt.v)}
+                  className={`rounded-xl p-2.5 border text-left transition-all ${minScore===opt.v?'bg-accent-green/10 border-accent-green/30':'border-border hover:bg-surface-2'}`}>
+                  <p className={`text-xs font-bold ${minScore===opt.v?'text-accent-green':'text-white'}`}>{opt.l}</p>
+                  <p className="text-[9px] text-muted mt-0.5">{opt.sub}</p>
+                </button>
+              ))}
+            </div>
+            {eduMode&&<p className="text-[10px] text-accent-green mt-1.5 italic">Strict = safer, fewer trades. Broader = more active, accept slightly lower conviction signals.</p>}
+          </div>
 
           <div>
             <p className="text-[10px] text-muted uppercase tracking-wide mb-2 font-semibold">Price Range — 276 stocks scanned, filtered by actual Alpaca price</p>

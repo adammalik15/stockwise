@@ -297,6 +297,8 @@ export default function SettingsPage() {
         )}
       </div>
 
+      <EarlyAccessSection userEmail={userEmail} />
+
       <div className="card">
         <p className="label mb-3">About StockWise</p>
         <div className="space-y-1.5 text-xs text-secondary">
@@ -331,6 +333,210 @@ function Toggle({ label, desc, value, onChange }: {
         className={`relative w-12 h-6 rounded-full transition-colors duration-200 shrink-0 ${value?'bg-accent-green':'bg-surface-4'}`}>
         <div className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow-sm transition-all duration-200 ${value?'left-7':'left-1'}`} />
       </button>
+    </div>
+  );
+}
+
+// ── Early Access Admin (injected at bottom of file — admin-only section) ──────
+// This is imported and used inside SettingsPage via EarlyAccessSection component
+export function EarlyAccessSection({ userEmail }: { userEmail: string }) {
+  const ADMIN = 'adammalik15@gmail.com';
+  if (userEmail !== ADMIN) return null;
+
+  const ALL_MODULES = [
+    { id: 'dashboard',          label: 'Dashboard' },
+    { id: 'watchlist',          label: 'Watchlist' },
+    { id: 'portfolio',          label: 'Portfolio' },
+    { id: 'portfolio-analysis', label: 'Analysis' },
+    { id: 'goals',              label: 'My Goals' },
+    { id: 'stock-intelligence', label: 'Stock Intel' },
+    { id: 'news-intelligence',  label: 'News Intel' },
+    { id: 'earnings',           label: 'Earnings' },
+    { id: 'trading-agent',      label: 'Trade Agent' },
+    { id: 'learn',              label: 'Learn' },
+  ];
+
+  const [users, setUsers]           = useState<any[]>([]);
+  const [loading, setLoading]       = useState(true);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [selectedMods, setSelectedMods] = useState<string[]>(ALL_MODULES.map(m => m.id));
+  const [inviting, setInviting]     = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [editingUser, setEditingUser] = useState<string | null>(null);
+  const [editMods, setEditMods]     = useState<string[]>([]);
+  const [error, setError]           = useState('');
+
+  async function loadUsers() {
+    setLoading(true);
+    const res = await fetch('/api/admin');
+    const json = await res.json();
+    setUsers(json.users ?? []);
+    setLoading(false);
+  }
+
+  useEffect(() => { loadUsers(); }, []);
+
+  async function invite() {
+    if (!inviteEmail.trim()) return;
+    setInviting(true); setError(''); setNewPassword('');
+    const res = await fetch('/api/admin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: inviteEmail.trim(), modules: selectedMods }),
+    });
+    const json = await res.json();
+    if (json.error) { setError(json.error); }
+    else { setNewPassword(json.password); setInviteEmail(''); loadUsers(); }
+    setInviting(false);
+  }
+
+  async function updateModules(email: string, modules: string[]) {
+    await fetch('/api/admin', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, modules }),
+    });
+    setEditingUser(null);
+    loadUsers();
+  }
+
+  async function removeUser(email: string) {
+    await fetch('/api/admin', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    loadUsers();
+  }
+
+  function toggleMod(arr: string[], id: string) {
+    return arr.includes(id) ? arr.filter(x => x !== id) : [...arr, id];
+  }
+
+  return (
+    <div className="card space-y-5">
+      <div className="flex items-center gap-2">
+        <Shield size={15} className="text-accent-green" />
+        <p className="text-sm font-semibold text-white">Early Access — User Management</p>
+        <span className="ml-auto text-[10px] bg-accent-green/10 text-accent-green px-2 py-0.5 rounded-full border border-accent-green/20">Admin only</span>
+      </div>
+
+      {/* Invite form */}
+      <div className="bg-surface-2 rounded-xl p-4 border border-border space-y-3">
+        <p className="text-xs font-semibold text-white">Invite new user</p>
+        <input
+          type="email" placeholder="user@email.com"
+          value={inviteEmail} onChange={e => setInviteEmail(e.target.value)}
+          className="input w-full text-sm"
+        />
+        <div>
+          <p className="text-[10px] text-muted uppercase tracking-wide mb-2">Module access</p>
+          <div className="flex flex-wrap gap-1.5">
+            {ALL_MODULES.map(m => (
+              <button key={m.id} onClick={() => setSelectedMods(prev => toggleMod(prev, m.id))}
+                className={`text-[10px] px-2.5 py-1 rounded-full border transition-colors ${
+                  selectedMods.includes(m.id)
+                    ? 'bg-accent-green/10 border-accent-green/30 text-accent-green'
+                    : 'border-border text-muted hover:text-white'
+                }`}>
+                {m.label}
+              </button>
+            ))}
+          </div>
+          <div className="flex gap-2 mt-2">
+            <button onClick={() => setSelectedMods(ALL_MODULES.map(m => m.id))}
+              className="text-[10px] text-accent-green hover:underline">Select all</button>
+            <button onClick={() => setSelectedMods([])}
+              className="text-[10px] text-muted hover:text-white hover:underline">Clear all</button>
+          </div>
+        </div>
+        <button onClick={invite} disabled={inviting || !inviteEmail.trim()}
+          className="btn-primary w-full flex items-center justify-center gap-2 text-sm">
+          {inviting ? <Loader2 size={14} className="animate-spin" /> : <ShieldCheck size={14} />}
+          {inviting ? 'Creating account…' : 'Create Account & Generate Password'}
+        </button>
+        {error && <p className="text-xs text-accent-red bg-accent-red/10 border border-accent-red/20 rounded-lg px-3 py-2">{error}</p>}
+      </div>
+
+      {/* Generated password display */}
+      {newPassword && (
+        <div className="bg-accent-green/5 border border-accent-green/25 rounded-xl p-4">
+          <p className="text-xs font-semibold text-accent-green mb-2">✓ Account created — share this password with the user:</p>
+          <div className="flex items-center gap-2">
+            <code className="flex-1 font-mono text-sm bg-surface-3 rounded-lg px-3 py-2 text-white select-all">{newPassword}</code>
+            <button onClick={() => navigator.clipboard.writeText(newPassword)}
+              className="btn-secondary text-xs shrink-0">Copy</button>
+          </div>
+          <p className="text-[10px] text-muted mt-2">This password is shown once. The user can change it after logging in.</p>
+        </div>
+      )}
+
+      {/* Existing users */}
+      <div>
+        <p className="text-xs font-semibold text-white mb-3">
+          Invited users ({users.length})
+        </p>
+        {loading ? (
+          <div className="flex items-center gap-2 text-muted text-sm py-4">
+            <Loader2 size={14} className="animate-spin" /> Loading…
+          </div>
+        ) : users.length === 0 ? (
+          <p className="text-xs text-muted py-4 text-center">No invited users yet.</p>
+        ) : (
+          <div className="space-y-3">
+            {users.map(u => (
+              <div key={u.email} className="bg-surface-2 rounded-xl p-3 border border-border">
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <p className="text-sm font-mono text-white truncate">{u.email}</p>
+                  <div className="flex gap-1.5 shrink-0">
+                    <button onClick={() => { setEditingUser(u.email); setEditMods(u.modules ?? []); }}
+                      className="text-[10px] px-2 py-1 rounded border border-border text-muted hover:text-white transition-colors">
+                      Edit
+                    </button>
+                    <button onClick={() => removeUser(u.email)}
+                      className="text-[10px] px-2 py-1 rounded border border-accent-red/30 text-accent-red hover:bg-accent-red/10 transition-colors">
+                      Remove
+                    </button>
+                  </div>
+                </div>
+                {editingUser === u.email ? (
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap gap-1.5">
+                      {ALL_MODULES.map(m => (
+                        <button key={m.id} onClick={() => setEditMods(prev => toggleMod(prev, m.id))}
+                          className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
+                            editMods.includes(m.id)
+                              ? 'bg-accent-green/10 border-accent-green/30 text-accent-green'
+                              : 'border-border text-muted'
+                          }`}>
+                          {m.label}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={() => updateModules(u.email, editMods)}
+                        className="btn-primary text-xs py-1.5 px-3 flex-1">Save</button>
+                      <button onClick={() => setEditingUser(null)}
+                        className="btn-secondary text-xs py-1.5 px-3">Cancel</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-1">
+                    {(u.modules ?? []).map((mid: string) => (
+                      <span key={mid} className="text-[9px] bg-surface-3 border border-border text-secondary px-1.5 py-0.5 rounded">
+                        {ALL_MODULES.find(m => m.id === mid)?.label ?? mid}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {u.invited_by && (
+                  <p className="text-[9px] text-muted mt-1.5">Invited {new Date(u.created_at).toLocaleDateString('en-US')}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

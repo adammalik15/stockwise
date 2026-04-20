@@ -529,7 +529,7 @@ async function fetchNextEarnings(ticker:string):Promise<string|null>{
 }
 
 // ── Signal engine ─────────────────────────────────────────────────────────────
-function analyzeSetup(candles:{closes:number[];highs:number[];lows:number[];volumes:number[];price:number},catalystFound:boolean):{setup:string;confidence:number;factors:string[];atr:number;entry:number;indicators:any}|null{
+function analyzeSetup(candles:{closes:number[];highs:number[];lows:number[];volumes:number[];price:number},catalystFound:boolean,minScore=4):{setup:string;confidence:number;factors:string[];atr:number;entry:number;indicators:any}|null{
   const{closes,highs,lows,volumes,price}=candles;
   const rsi     = calcRSI(closes);
   const atr     = calcATR(highs,lows,closes);
@@ -623,7 +623,7 @@ function analyzeSetup(candles:{closes:number[];highs:number[];lows:number[];volu
 
   if(catalystFound){ score++; factors.push('Bullish news catalyst in past 72h'); }
 
-  if(score < 4) return null;
+  if(score < minScore) return null;
 
   // ── Determine setup type ───────────────────────────────────────────────────
   const high20 = Math.max(...closes.slice(-21,-1));
@@ -810,7 +810,7 @@ export async function POST(request:NextRequest){
   if(!ALPACA_KEY||!ALPACA_SECRET)return NextResponse.json({signal:'NO_TRADE',reason:'ALPACA_KEY_ID and ALPACA_SECRET not configured in Vercel.',scanned:0,setups:[]});
 
   const body=await request.json().catch(()=>({}));
-  const{price_range='medium',capital=10000,specific_ticker=null}=body;
+  const{price_range='medium',capital=10000,specific_ticker=null,min_score=4}=body;
   const anthropicKey=process.env.ANTHROPIC_API_KEY;
   const isAdmin=user.email===ADMIN_EMAIL;
 
@@ -875,7 +875,7 @@ export async function POST(request:NextRequest){
     if(!candles)return NextResponse.json({signal:'NO_DATA',reason:`Could not fetch data for ${ticker}. Verify the ticker symbol and try again.`,scanned:0,setups:[]});
     const meta=UNIVERSE[ticker]??{halal:'doubtful',sector:'Unknown',tier:'medium',description:'Custom ticker — verify all details before trading'};
     const catalyst=await fetchCatalyst(ticker);
-    const analysis=analyzeSetup(candles,catalyst.found);
+    const analysis=analyzeSetup(candles,catalyst.found,min_score);
     const card=await enrichAndBuild(ticker,candles,analysis,meta);
     return NextResponse.json({signal:card.no_signal?'NO_SIGNAL':'SETUPS_FOUND',scanned:1,found:card.no_signal?0:1,isAdmin,setups:[card],generated_at:new Date().toISOString()});
   }
@@ -893,9 +893,13 @@ export async function POST(request:NextRequest){
     return NextResponse.json({signal:'NO_TRADE',reason:fetched===0?'Could not fetch market data from Alpaca. Check your API keys in Vercel.':`${fetched} stocks fetched — none currently priced in the ${price_range} range. Try a different range.`,scanned:0,setups:[]});
   }
 
-  // Catalyst check in parallel
+  // Catalyst check — serialized in small batches to avoid Finnhub 60/min rate limit
   const catalystMap=new Map<string,{found:boolean;headlines:string[]}>();
-  await Promise.all(inRange.map(async t=>{catalystMap.set(t,await fetchCatalyst(t));}));
+  for(let i=0;i<inRange.length;i+=10){
+    const batch=inRange.slice(i,i+10);
+    await Promise.all(batch.map(async t=>{catalystMap.set(t,await fetchCatalyst(t));}));
+    if(i+10<inRange.length)await new Promise(r=>setTimeout(r,150));
+  }
 
   // Signal check (synchronous, fast) — collect qualifying stocks
   const rejectLog:string[]=[];
@@ -903,7 +907,7 @@ export async function POST(request:NextRequest){
   for(const ticker of inRange){
     const candles=candleMap.get(ticker);const cat=catalystMap.get(ticker)??{found:false,headlines:[]};
     if(!candles)continue;
-    const analysis=analyzeSetup(candles,cat.found);
+    const analysis=analyzeSetup(candles,cat.found,min_score);
     if(!analysis){rejectLog.push(`${ticker}: RSI ${calcRSI(candles.closes)}, Vol ${calcVolumeData(candles.volumes).ratio}×`);continue;}
     qualifyingSetups.push({ticker,candles,analysis,meta:UNIVERSE[ticker]});
   }
