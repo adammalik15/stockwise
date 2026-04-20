@@ -4,14 +4,6 @@ import { createClient as createAdminClient } from '@supabase/supabase-js';
 
 const ADMIN_EMAIL = 'adammalik15@gmail.com';
 
-const ALL_MODULES = [
-  'dashboard','watchlist','portfolio','portfolio-analysis',
-  'goals','stock-intelligence','news-intelligence','earnings',
-  'trading-agent','learn',
-] as const;
-
-type Module = typeof ALL_MODULES[number];
-
 function generatePassword(length = 12): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$';
   let pwd = '';
@@ -19,6 +11,15 @@ function generatePassword(length = 12): string {
     pwd += chars[Math.floor(Math.random() * chars.length)];
   }
   return pwd;
+}
+
+function getAdminClient() {
+  const url     = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const svcKey  = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!svcKey) return null;
+  return createAdminClient(url, svcKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
 }
 
 // ── GET: list all invited users ───────────────────────────────────────────────
@@ -34,11 +35,18 @@ export async function GET() {
     .select('*')
     .order('created_at', { ascending: false });
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  // If error — table probably doesn't exist yet, return clear message
+  if (error) {
+    return NextResponse.json({
+      users: [],
+      setup_required: true,
+      message: `Table missing or RLS error: ${error.message}. Run the SQL setup script in Supabase.`,
+    });
+  }
   return NextResponse.json({ users: data ?? [] });
 }
 
-// ── POST: invite a new user ───────────────────────────────────────────────────
+// ── POST: invite or update a user ─────────────────────────────────────────────
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -51,63 +59,65 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'email and modules required' }, { status: 400 });
   }
 
-  const password = generatePassword();
+  const password   = generatePassword();
+  const adminSupa  = getAdminClient();
+  let authUserId: string | null = null;
+  let alreadyExisted = false;
+  let passwordToReturn = password;
 
-  // Use service role client to create auth user
-  const adminUrl  = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!serviceKey) {
-    // Fallback: just store in user_access without creating auth user
-    const { error } = await supabase.from('user_access').upsert({
+  if (adminSupa) {
+    // Try to create auth user
+    const { data: createData, error: createError } = await adminSupa.auth.admin.createUser({
       email,
+      password,
+      email_confirm: true,
+    });
+
+    if (createError) {
+      if (createError.message.toLowerCase().includes('already registered') ||
+          createError.message.toLowerCase().includes('already been registered') ||
+          createError.message.toLowerCase().includes('email address has already')) {
+        // User exists in auth — look up their ID
+        alreadyExisted = true;
+        passwordToReturn = ''; // Don't show password — they already have one
+        const { data: listData } = await adminSupa.auth.admin.listUsers({ perPage: 1000 });
+        const existing = listData?.users?.find((u: any) => u.email?.toLowerCase() === email.toLowerCase());
+        authUserId = existing?.id ?? null;
+      } else {
+        return NextResponse.json({ error: createError.message }, { status: 500 });
+      }
+    } else {
+      authUserId = createData?.user?.id ?? null;
+    }
+  }
+
+  // Upsert user_access record regardless of auth outcome
+  const { error: dbError } = await supabase
+    .from('user_access')
+    .upsert({
+      email: email.toLowerCase(),
       modules,
       invited_by: ADMIN_EMAIL,
-      temp_password: password,
+      auth_user_id: authUserId,
     }, { onConflict: 'email' });
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    return NextResponse.json({ success: true, password, note: 'Stored access record. Have user sign up manually then their access will be applied.' });
+
+  if (dbError) {
+    return NextResponse.json({
+      error: `Database error: ${dbError.message}. Make sure you have created the user_access table in Supabase.`,
+    }, { status: 500 });
   }
 
-  // Create Supabase auth user with generated password
-  const adminSupa = createAdminClient(adminUrl, serviceKey, { auth: { autoRefreshToken: false, persistSession: false } });
-  const { data: authData, error: authError } = await adminSupa.auth.admin.createUser({
-    email,
-    password,
-    email_confirm: true,
-  });
-
-  // If user already exists in Auth, look up their ID; otherwise use the newly created ID
-  let authUserId: string | null = authData?.user?.id ?? null;
-  if (authError?.message?.includes('already registered')) {
-    // User exists — look up their ID so we can link the access record
-    const { data: existingUsers } = await adminSupa.auth.admin.listUsers();
-    const existing = existingUsers?.users?.find((u: any) => u.email === email);
-    authUserId = existing?.id ?? null;
-    // Don't return an error — just update their access record with new modules
-  } else if (authError) {
-    return NextResponse.json({ error: authError.message }, { status: 500 });
-  }
-
-  // Upsert access record — works for both new and existing users
-  const { error: dbError } = await supabase.from('user_access').upsert({
-    email,
-    modules,
-    invited_by: ADMIN_EMAIL,
-    auth_user_id: authUserId,
-  }, { onConflict: 'email' });
-
-  if (dbError) return NextResponse.json({ error: dbError.message }, { status: 500 });
-  
-  const isExisting = !!authError?.message?.includes('already registered');
-  return NextResponse.json({ 
-    success: true, 
-    password: isExisting ? null : password,
-    already_existed: isExisting,
+  return NextResponse.json({
+    success: true,
+    password: passwordToReturn,
+    already_existed: alreadyExisted,
+    message: alreadyExisted
+      ? 'User already had an account. Module access has been updated.'
+      : 'Account created successfully.',
   });
 }
 
-// ── PATCH: update user modules ────────────────────────────────────────────────
+// ── PATCH: update modules for existing user ───────────────────────────────────
 export async function PATCH(request: NextRequest) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -119,7 +129,7 @@ export async function PATCH(request: NextRequest) {
   const { error } = await supabase
     .from('user_access')
     .update({ modules })
-    .eq('email', email);
+    .eq('email', email.toLowerCase());
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ success: true });
@@ -134,7 +144,11 @@ export async function DELETE(request: NextRequest) {
   }
 
   const { email } = await request.json();
-  const { error } = await supabase.from('user_access').delete().eq('email', email);
+  const { error } = await supabase
+    .from('user_access')
+    .delete()
+    .eq('email', email.toLowerCase());
+
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ success: true });
 }

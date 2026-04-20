@@ -358,17 +358,31 @@ export function EarlyAccessSection({ userEmail }: { userEmail: string }) {
 
   const [users, setUsers]           = useState<any[]>([]);
   const [loading, setLoading]       = useState(true);
+  const [setupRequired, setSetupRequired] = useState(false);
+  const [setupMsg, setSetupMsg]     = useState('');
   const [inviteEmail, setInviteEmail] = useState('');
   const [selectedMods, setSelectedMods] = useState<string[]>(ALL_MODULES.map(m => m.id));
   const [inviting, setInviting]     = useState(false);
   const [newPassword, setNewPassword] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
   const [error, setError]           = useState('');
 
   async function loadUsers() {
     setLoading(true);
-    const res = await fetch('/api/admin');
-    const json = await res.json();
-    setUsers(json.users ?? []);
+    try {
+      const res = await fetch('/api/admin');
+      const json = await res.json();
+      if (json.setup_required) {
+        setSetupRequired(true);
+        setSetupMsg(json.message ?? 'Run Supabase setup SQL first.');
+      } else {
+        setSetupRequired(false);
+      }
+      setUsers(json.users ?? []);
+    } catch {
+      setSetupRequired(true);
+      setSetupMsg('Could not reach /api/admin. Check deployment.');
+    }
     setLoading(false);
   }
 
@@ -383,13 +397,16 @@ export function EarlyAccessSection({ userEmail }: { userEmail: string }) {
       body: JSON.stringify({ email: inviteEmail.trim(), modules: selectedMods }),
     });
     const json = await res.json();
-    if (json.error) { setError(json.error); }
-    else if (json.already_existed) {
-      setNewPassword('');
+    if (json.error) {
+      setError(json.error);
+    } else {
       setError('');
-      // User already existed in auth — their module access has been updated
+      setSuccessMsg(json.message ?? 'Done.');
+      setNewPassword(json.password ?? '');
+      if (!json.already_existed) setInviteEmail('');
       loadUsers();
-    } else { setNewPassword(json.password ?? ''); setInviteEmail(''); loadUsers(); }
+      setTimeout(() => setSuccessMsg(''), 5000);
+    }
     setInviting(false);
   }
 
@@ -456,10 +473,30 @@ export function EarlyAccessSection({ userEmail }: { userEmail: string }) {
         <button onClick={invite} disabled={inviting || !inviteEmail.trim()}
           className="btn-primary w-full flex items-center justify-center gap-2 text-sm">
           {inviting ? <Loader2 size={14} className="animate-spin" /> : <ShieldCheck size={14} />}
-          {inviting ? 'Creating account…' : 'Create Account & Generate Password'}
+          {inviting ? 'Creating account…' : 'Create / Update Access'}
         </button>
         {error && <p className="text-xs text-accent-red bg-accent-red/10 border border-accent-red/20 rounded-lg px-3 py-2">{error}</p>}
+        {successMsg && <p className="text-xs text-accent-green bg-accent-green/10 border border-accent-green/20 rounded-lg px-3 py-2">{successMsg}</p>}
       </div>
+
+      {setupRequired && (
+        <div className="bg-accent-yellow/8 border border-accent-yellow/30 rounded-xl p-4 space-y-2">
+          <p className="text-xs font-bold text-accent-yellow">⚠️ Supabase setup required</p>
+          <p className="text-[10px] text-secondary leading-relaxed">{setupMsg}</p>
+          <p className="text-[10px] text-muted">Run the SQL in your Supabase dashboard SQL editor:</p>
+          <pre className="text-[9px] text-accent-green bg-surface-3 rounded p-2 overflow-x-auto">{`create table if not exists user_access (
+  id uuid default gen_random_uuid() primary key,
+  email text unique not null,
+  modules text[] default '{}',
+  invited_by text,
+  auth_user_id uuid,
+  created_at timestamptz default now()
+);
+alter table user_access enable row level security;
+create policy "Admin full access" on user_access
+  using (auth.jwt()->>'email' = 'adammalik15@gmail.com');`}</pre>
+        </div>
+      )}
 
       {/* Success message for already-existing user */}
       {!newPassword && !error && users.length > 0 && (

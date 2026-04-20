@@ -545,7 +545,7 @@ function analyzeSetup(candles:{closes:number[];highs:number[];lows:number[];volu
   // ── Improvement 2: tier-based volume threshold ─────────────────────────────
   // Small price stocks need higher volume to confirm (proxy by price tier)
   const volMin = price < 25 ? 2.0 : price < 100 ? 1.3 : 1.2;  // 1.3x for mid-caps is standard professional threshold
-  if(volData.ratio < volMin) return null;
+  if(volData.ratio < volMin * 0.97) return null;  // 3% buffer prevents borderline flipping
 
   // ── Hard rejects ───────────────────────────────────────────────────────────
   if(rsi > 75 || rsi < 22) return null;          // Improvement 1: tightened overbought from 78→75
@@ -576,18 +576,18 @@ function analyzeSetup(candles:{closes:number[];highs:number[];lows:number[];volu
     factors.push('EMA-20 rising — trend actively strengthening');
   }
 
-  // ── Factor 3: RSI — tightened zones (Improvement 1) ──────────────────────
-  if(rsi>=50 && rsi<=65){
+  // ── Factor 3: RSI zones — ±2 buffer prevents boundary-cliff instability ──────
+  // Without buffer, RSI 49/50 flip causes stocks to appear/disappear between scans
+  if(rsi>=48 && rsi<=65){
     score++;
-    factors.push(`RSI ${rsi} — healthy momentum, not overbought`);
+    factors.push(`RSI ${rsi} — healthy momentum zone`);
   } else if(rsi>65 && rsi<=75){
     factors.push(`RSI ${rsi} — elevated, reduce position size`);
-  } else if(rsi>=28 && rsi<42){
-    // Tightened dip zone: was 30-48, now 28-42 (Improvement 1)
+  } else if(rsi>=28 && rsi<44){
     score++;
     factors.push(`RSI ${rsi} — genuinely oversold, bounce zone`);
-  } else if(rsi>=42 && rsi<50){
-    // 42-50 is neutral — no edge, skip
+  } else if(rsi>=44 && rsi<48){
+    // 44-48 is neutral buffer — no edge
     factors.push(`RSI ${rsi} — neutral zone, no clear signal`);
   }
 
@@ -893,23 +893,39 @@ export async function POST(request:NextRequest){
     return NextResponse.json({signal:'NO_TRADE',reason:fetched===0?'Could not fetch market data from Alpaca. Check your API keys in Vercel.':`${fetched} stocks fetched — none currently priced in the ${price_range} range. Try a different range.`,scanned:0,setups:[]});
   }
 
-  // Catalyst check — serialized in small batches to avoid Finnhub 60/min rate limit
-  const catalystMap=new Map<string,{found:boolean;headlines:string[]}>();
-  for(let i=0;i<inRange.length;i+=10){
-    const batch=inRange.slice(i,i+10);
-    await Promise.all(batch.map(async t=>{catalystMap.set(t,await fetchCatalyst(t));}));
-    if(i+10<inRange.length)await new Promise(r=>setTimeout(r,150));
+  // Signal check FIRST (fast, no API calls) — then fetch catalyst only for candidates
+  // This cuts Finnhub calls from 57 → typically 3-8 (only near-qualifiers)
+  const rejectLog:string[]=[];
+  const preQualified:{ticker:string;candles:any;meta:any}[]=[];
+  for(const ticker of inRange){
+    const candles=candleMap.get(ticker);
+    if(!candles)continue;
+    // Check without catalyst first — fast pass
+    const analysisNoCat=analyzeSetup(candles,false,min_score);
+    // Also check if catalyst WOULD push it over (i.e. score is min_score-1 without it)
+    const analysisCheck=analyzeSetup(candles,true,min_score);
+    if(analysisNoCat||analysisCheck){
+      preQualified.push({ticker,candles,meta:UNIVERSE[ticker]});
+    } else {
+      rejectLog.push(`${ticker}: RSI ${calcRSI(candles.closes)}, Vol ${calcVolumeData(candles.volumes).ratio.toFixed(1)}×`);
+    }
   }
 
-  // Signal check (synchronous, fast) — collect qualifying stocks
-  const rejectLog:string[]=[];
+  // NOW fetch catalyst — only for pre-qualified stocks (typically 3-10 instead of 57)
+  const catalystMap=new Map<string,{found:boolean;headlines:string[]}>();
+  for(let i=0;i<preQualified.length;i+=10){
+    const batch=preQualified.slice(i,i+10);
+    await Promise.all(batch.map(async ({ticker})=>{catalystMap.set(ticker,await fetchCatalyst(ticker));}));
+    if(i+10<preQualified.length)await new Promise(r=>setTimeout(r,150));
+  }
+
+  // Final signal check with actual catalyst data
   const qualifyingSetups:{ticker:string;candles:any;analysis:any;meta:any}[]=[];
-  for(const ticker of inRange){
-    const candles=candleMap.get(ticker);const cat=catalystMap.get(ticker)??{found:false,headlines:[]};
-    if(!candles)continue;
+  for(const {ticker,candles,meta} of preQualified){
+    const cat=catalystMap.get(ticker)??{found:false,headlines:[]};
     const analysis=analyzeSetup(candles,cat.found,min_score);
-    if(!analysis){rejectLog.push(`${ticker}: RSI ${calcRSI(candles.closes)}, Vol ${calcVolumeData(candles.volumes).ratio}×`);continue;}
-    qualifyingSetups.push({ticker,candles,analysis,meta:UNIVERSE[ticker]});
+    if(!analysis){rejectLog.push(`${ticker}: near-miss after catalyst check`);continue;}
+    qualifyingSetups.push({ticker,candles,analysis,meta});
   }
 
   // Enrich ALL qualifying stocks IN PARALLEL — avoids serial 3-4s per stock timeout

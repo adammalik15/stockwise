@@ -777,8 +777,9 @@ export default function TradingAgentPage(){
             {eduMode&&<p className="text-[10px] text-accent-green mt-1.5 italic">Strict = safer, fewer trades. Broader = more active, accept slightly lower conviction signals.</p>}
           </div>
 
+          {mode==='auto'&&(
           <div>
-            <p className="text-[10px] text-muted uppercase tracking-wide mb-2 font-semibold">Price Range — 276 stocks scanned, filtered by actual Alpaca price</p>
+            <p className="text-[10px] text-muted uppercase tracking-wide mb-2 font-semibold">Price Range — 276 halal stocks scanned, filtered by actual Alpaca price</p>
             <div className="flex flex-wrap gap-2">
               {RANGES.map(r=>(
                 <button key={r.id} onClick={()=>setPriceRange(r.id)}
@@ -789,6 +790,7 @@ export default function TradingAgentPage(){
               ))}
             </div>
           </div>
+          )}
 
           <button onClick={scan} disabled={loading} className="btn-primary w-full flex items-center justify-center gap-2">
             {loading
