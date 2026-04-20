@@ -111,6 +111,28 @@ const EDU_SECTIONS = [
   },
 ];
 
+// ── SectionGuide component ───────────────────────────────────────────────────
+function SectionGuide({sectionId, show}:{sectionId:string; show:boolean}){
+  if(!show)return null;
+  const section=EDU_SECTIONS.find(s=>s.id===sectionId);
+  if(!section)return null;
+  return(
+    <div className="bg-surface-2 rounded-xl p-4 border border-border space-y-3">
+      <h3 className="text-sm font-bold text-white">{section.label}</h3>
+      <p className="text-[11px] text-secondary leading-relaxed">{section.intro}</p>
+      <div className="space-y-2">
+        {section.items.map((item,i)=>(
+          <div key={i} className="border-l-2 border-accent-green/30 pl-3">
+            <p className="text-[11px] font-semibold text-accent-green">{item.t}</p>
+            <p className="text-[10px] text-secondary leading-relaxed mb-1">{item.d}</p>
+            <p className="text-[9px] text-muted italic">{item.ex}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── Gauge component ───────────────────────────────────────────────────────────
 interface Zone{from:number;to:number;hex:string;alpha:number}
 function Gauge({label,value,min,max,zones,ticks,tipKey,eduMode,eduVal}:{label:string;value:number;min:number;max:number;zones:Zone[];ticks:{v:number;l:string}[];tipKey:string;eduMode:boolean;eduVal?:any}){
@@ -182,7 +204,11 @@ function fmtDollars(n:number|null){if(n==null)return'N/A';const abs=Math.abs(n);
 function fmtVol(n:number){if(!n)return'N/A';if(n>=1e9)return`${(n/1e9).toFixed(1)}B`;if(n>=1e6)return`${(n/1e6).toFixed(1)}M`;if(n>=1e3)return`${(n/1e3).toFixed(0)}K`;return String(n);}
 
 // ── Setup card ────────────────────────────────────────────────────────────────
-function SetupCard({setup,eduMode,onCertify,certLoading,isTopPick}:{setup:any;eduMode:boolean;onCertify:(t:string,v:string)=>void;certLoading:string|null;isTopPick:boolean}){
+// ── Setup card ────────────────────────────────────────────────────────────────
+function SetupCard({setup,eduMode,onCertify,certLoading,isTopPick,showGuide}:{
+  setup:any;eduMode:boolean;onCertify:(t:string,v:string)=>void;
+  certLoading:string|null;isTopPick:boolean;showGuide:boolean;
+}){
   const[expanded,setExpanded]=useState(false);
   const[capital,setCapital]=useState(10000);
   const ind=setup.indicators??{};
@@ -193,7 +219,6 @@ function SetupCard({setup,eduMode,onCertify,certLoading,isTopPick}:{setup:any;ed
   const earningsWarning=daysToEarnings!=null&&daysToEarnings<=7&&daysToEarnings>=0;
   const noSignal=!!setup.no_signal;
 
-  // ATR minimum guard: never let ATR be less than 0.5% of price (prevents exploding shares)
   const rawATR=ind.atr??levels?.atr??0;
   const minATR=(setup.price??10)*0.005;
   const atr=Math.max(minATR,rawATR>0?rawATR:minATR);
@@ -202,6 +227,7 @@ function SetupCard({setup,eduMode,onCertify,certLoading,isTopPick}:{setup:any;ed
   const liveStop=parseFloat((liveEntry-stopDist).toFixed(2));
   const liveTp1=parseFloat((liveEntry+atr*2).toFixed(2));
   const liveShares=Math.max(1,Math.floor((capital*0.03)/Math.max(0.01,stopDist)));
+  const fullShares=Math.max(1,Math.floor(capital/Math.max(0.01,liveEntry)));
   const livePos=parseFloat((liveShares*liveEntry).toFixed(2));
   const liveLoss=parseFloat((liveShares*stopDist).toFixed(2));
   const liveRR=parseFloat(((atr*2)/stopDist).toFixed(1));
@@ -210,8 +236,11 @@ function SetupCard({setup,eduMode,onCertify,certLoading,isTopPick}:{setup:any;ed
   const confColor=setup.confidence>=7?'text-accent-green':setup.confidence>=5?'text-accent-yellow':'text-muted';
 
   const chartData=(setup.chartData??[]).map((p:any)=>({
-    date:p.date??p.d??'',open:p.close??p.c??0,high:p.close??p.c??0,low:p.close??p.c??0,close:p.close??p.c??0,volume:0,
+    date:p.date??p.d??'',open:p.close??p.c??0,high:p.close??p.c??0,
+    low:p.close??p.c??0,close:p.close??p.c??0,volume:0,
   })).filter((p:any)=>p.date&&p.close>0);
+
+  const G=({id}:{id:string})=>showGuide?<div className="hidden xl:block mt-2"><SectionGuide sectionId={id} show={true}/></div>:null;
 
   return(
     <div className={`card p-0 overflow-hidden border ${isTopPick?'border-accent-green/40':'border-border'}`}>
@@ -224,7 +253,7 @@ function SetupCard({setup,eduMode,onCertify,certLoading,isTopPick}:{setup:any;ed
       {earningsWarning&&(
         <div className="bg-accent-yellow/10 border-b border-accent-yellow/20 px-4 py-2 flex items-center gap-2">
           <Calendar size={12} className="text-accent-yellow shrink-0"/>
-          <p className="text-[11px] text-accent-yellow font-semibold">⚠️ Earnings Call in {daysToEarnings} day{daysToEarnings!==1?'s':''} ({fmtDate(setup.earningsDate)}) — binary bet, not momentum</p>
+          <p className="text-[11px] text-accent-yellow font-semibold">⚠️ Earnings in {daysToEarnings} day{daysToEarnings!==1?'s':''} ({fmtDate(setup.earningsDate)}) — binary bet</p>
         </div>
       )}
       {noSignal&&(
@@ -250,7 +279,7 @@ function SetupCard({setup,eduMode,onCertify,certLoading,isTopPick}:{setup:any;ed
           <HalalBadge setup={setup} onCertify={onCertify} certLoading={certLoading} canEdit={setup.canEdit}/>
         </div>
 
-        {/* Price + analyst target */}
+        {/* Price + Analyst Target */}
         <div className="flex items-center gap-3 flex-wrap">
           <span className="text-2xl font-bold text-white font-mono">${setup.price?.toFixed(2)}</span>
           <span className={`text-sm font-semibold flex items-center gap-0.5 ${chgPos?'text-accent-green':'text-accent-red'}`}>
@@ -260,7 +289,7 @@ function SetupCard({setup,eduMode,onCertify,certLoading,isTopPick}:{setup:any;ed
           {setup.targets?.consensus&&(
             <div className="ml-auto flex items-center gap-1.5 bg-surface-3 rounded-lg px-2.5 py-1 border border-border">
               <Target size={10} className="text-accent-green shrink-0"/>
-              <span className="text-[10px] text-muted">Target</span>
+              <span className="text-[10px] text-muted">Analyst Target</span>
               <span className="text-xs font-mono font-bold text-accent-green">${setup.targets.consensus.toFixed(2)}</span>
               {setup.targets.upside!=null&&(
                 <span className={`text-[9px] font-bold ${setup.targets.upside>=0?'text-accent-green':'text-accent-red'}`}>
@@ -271,41 +300,42 @@ function SetupCard({setup,eduMode,onCertify,certLoading,isTopPick}:{setup:any;ed
           )}
         </div>
 
-        {/* Signal factors + catalyst */}
+        {/* Signal factors */}
         {!noSignal&&setup.factors?.length>0&&(
           <div className="space-y-1.5">
             <div className="flex flex-wrap gap-1.5">
-              {setup.factors.map((f:string,i:number)=><span key={i} className="text-[10px] bg-accent-green/10 text-accent-green px-2 py-0.5 rounded-full border border-accent-green/20">✓ {f}</span>)}
+              {setup.factors.map((f:string,i:number)=>(
+                <span key={i} className="text-[10px] bg-accent-green/10 text-accent-green px-2 py-0.5 rounded-full border border-accent-green/20">✓ {f}</span>
+              ))}
             </div>
             {setup.catalystHeadlines?.length>0&&(
               <div className="bg-accent-green/5 border border-accent-green/15 rounded-xl p-2.5">
                 <p className="text-[10px] text-accent-green font-semibold mb-1">📰 Recent bullish news (past 72h):</p>
-                {setup.catalystHeadlines.map((h:string,i:number)=><p key={i} className="text-[10px] text-secondary leading-relaxed">• {h}</p>)}
+                {setup.catalystHeadlines.map((h:string,i:number)=>(
+                  <p key={i} className="text-[10px] text-secondary leading-relaxed">• {h}</p>
+                ))}
               </div>
             )}
           </div>
         )}
 
-        {/* Chart — visible by default */}
+        {/* Chart */}
         {chartData.length>0&&(
           <div className="border-t border-border pt-3">
             <PriceChart
-              ticker={setup.ticker}
-              initialData={chartData}
-              currentPrice={setup.price}
-              defaultPeriod="3mo"
+              ticker={setup.ticker} initialData={chartData}
+              currentPrice={setup.price} defaultPeriod="3mo"
               keyMoves={(setup.keyMoves??[]).map((m:any)=>({date:m.date,pct:m.pct,direction:m.direction,reason:m.reason}))}
-              pdh={levels?.pdh}
-              pdl={levels?.pdl}
+              pdh={levels?.pdh} pdl={levels?.pdl}
             />
           </div>
         )}
 
-        {/* Key moves — horizontal strip directly under chart */}
+        {/* Key moves */}
         {setup.keyMoves?.length>0&&(
           <div>
             <p className="text-[10px] text-muted uppercase tracking-wide font-semibold mb-1.5 flex items-center gap-1">⚡ Key moves (5%+)<T id="keyMoves"/></p>
-            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+            <div className="flex gap-2 overflow-x-auto pb-1">
               {setup.keyMoves.map((m:any,i:number)=>(
                 <div key={i} className={`shrink-0 rounded-xl border px-3 py-2 min-w-44 max-w-60 ${m.pct>0?'bg-accent-green/5 border-accent-green/20':'bg-accent-red/5 border-accent-red/20'}`}>
                   <div className="flex items-center gap-2 mb-1">
@@ -313,7 +343,7 @@ function SetupCard({setup,eduMode,onCertify,certLoading,isTopPick}:{setup:any;ed
                     <span className="text-[9px] text-muted">{fmtDate(m.date)}</span>
                     <span className="text-[9px] text-muted ml-auto">{m.volume_ratio}× vol</span>
                   </div>
-                  <p className="text-[10px] text-secondary leading-snug">{m.reason||'Significant price move — AI explanation loading'}</p>
+                  <p className="text-[10px] text-secondary leading-snug">{m.reason||'AI explanation loading'}</p>
                 </div>
               ))}
             </div>
@@ -322,88 +352,94 @@ function SetupCard({setup,eduMode,onCertify,certLoading,isTopPick}:{setup:any;ed
 
         {/* Trade levels */}
         {levels&&!noSignal&&(
-          <div className="bg-surface-2 rounded-xl p-3 border border-border" data-guide-section="levels">
-            <p className="text-[10px] text-muted font-semibold uppercase tracking-wide mb-2">Trade Levels<T id="sr"/></p>
-            {/* PDH/PDL Rumers Box */}
-            <div className="flex gap-2 mb-2">
-              {[{l:'PDH',v:levels.pdh,tip:'pdh',c:'text-accent-yellow'},{l:'MidBox',v:levels.pdm,tip:'pdm',c:'text-muted'},{l:'PDL',v:levels.pdl,tip:'pdl',c:'text-accent-blue'}].map(r=>(
-                <div key={r.l} className="flex-1 text-center bg-surface-3 rounded-lg py-1.5 border border-border">
-                  <p className={`text-[8px] font-bold ${r.c} flex items-center justify-center gap-0.5`}>{r.l}<T id={r.tip}/></p>
-                  <p className="text-[10px] font-mono text-white">${r.v?.toFixed(2)??'—'}</p>
-                </div>
-              ))}
-            </div>
-            {/* Price stack */}
-            <div className="space-y-1 mb-2">
-              {[
-                {label:'TP1',v:setup.tp1,type:'r',note:<>Target 1<T id="tp1"/></>},
-                {label:'Entry',v:`$${setup.entryLo?.toFixed(2)}–$${setup.entryHi?.toFixed(2)}`,type:'e',note:<>Entry zone<T id="entry"/></>},
-                {label:'Price now',v:setup.price,type:'c',note:'Current price'},
-                {label:'Stop',v:setup.stop,type:'s',note:<>Stop-loss<T id="stop"/></>},
-                {label:'S1',v:levels.s1,type:'s',note:'Pivot support'},
-              ].map((row,i)=>(
-                <div key={i} className={`flex items-center gap-2 px-2 py-1 rounded-lg text-[11px] ${row.type==='c'?'bg-accent-green/10 border border-accent-green/30':row.type==='e'?'bg-accent-blue/10 border border-accent-blue/20':row.type==='r'?'border-l-2 border-accent-red/40':'border-l-2 border-accent-green/40'}`}>
-                  <span className={`font-bold w-16 shrink-0 ${row.type==='c'?'text-accent-green':row.type==='e'?'text-accent-blue':row.type==='r'?'text-accent-red':'text-accent-green'}`}>{row.label}</span>
-                  <span className="font-mono font-bold text-white">{typeof row.v==='number'?`$${row.v.toFixed(2)}`:row.v}</span>
-                  <span className="text-muted text-[9px]">{row.note}</span>
-                </div>
-              ))}
-            </div>
-            {/* R:R badge in trade levels */}
-            <div className="flex items-center justify-between bg-surface-3 rounded-lg px-3 py-2 border border-border mb-2">
-              <span className="text-[10px] text-muted">R:R ratio<T id="rr"/></span>
-              <span className="text-sm font-bold text-accent-yellow font-mono">1 : {liveRR}</span>
-              <span className="text-[9px] text-muted">Hold: {setup.holdDays}</span>
-            </div>
-            {/* Fibonacci */}
-            <div className="flex gap-2">
-              {[{l:'Fib 38.2%',v:levels.fib382},{l:'Fib 50%',v:levels.fib500},{l:'Fib 61.8%',v:levels.fib618}].map(f=>(
-                <div key={f.l} className="text-center bg-surface-3 rounded-lg px-2 py-1.5 border border-border flex-1">
-                  <p className="text-[8px] text-accent-yellow font-bold">{f.l}<T id="fib"/></p>
-                  <p className="text-[10px] font-mono text-white">${f.v?.toFixed(2)}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Position sizing — simplified */}
-        {!noSignal&&(
-          <div className="bg-surface-2 rounded-xl p-3 border border-border" data-guide-section="position">
-            <div className="flex items-center gap-3 mb-2">
-              <p className="text-[10px] text-muted font-semibold uppercase tracking-wide">Position Sizing<T id="capital"/></p>
-              <div className="flex items-center gap-1.5 ml-auto">
-                <span className="text-[10px] text-muted">Capital $</span>
-                <input type="number" value={capital} min={100} step={500}
-                  onChange={e=>setCapital(Math.max(100,parseInt(e.target.value)||10000))}
-                  className="input w-28 text-xs font-mono py-1 px-2"/>
+          <div className={showGuide?'xl:grid xl:grid-cols-[1fr_300px] xl:gap-4 xl:items-start':''}>
+            <div className="bg-surface-2 rounded-xl p-3 border border-border">
+              <p className="text-[10px] text-muted font-semibold uppercase tracking-wide mb-2">Trade Levels<T id="sr"/></p>
+              <div className="flex gap-2 mb-2">
+                {[{l:'PDH',v:levels.pdh,tip:'pdh',c:'text-accent-yellow'},{l:'MidBox',v:levels.pdm,tip:'pdm',c:'text-muted'},{l:'PDL',v:levels.pdl,tip:'pdl',c:'text-accent-blue'}].map(r=>(
+                  <div key={r.l} className="flex-1 text-center bg-surface-3 rounded-lg py-1.5 border border-border">
+                    <p className={`text-[8px] font-bold ${r.c} flex items-center justify-center gap-0.5`}>{r.l}<T id={r.tip}/></p>
+                    <p className="text-[10px] font-mono text-white">${r.v?.toFixed(2)??'—'}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="space-y-1 mb-2">
+                {[
+                  {label:'TP1',v:setup.tp1,type:'r',note:'Target 1'},
+                  {label:'Entry',v:`$${setup.entryLo?.toFixed(2)}–$${setup.entryHi?.toFixed(2)}`,type:'e',note:'Entry zone'},
+                  {label:'Price now',v:setup.price,type:'c',note:'Current price'},
+                  {label:'Stop',v:setup.stop,type:'s',note:'Stop-loss'},
+                  {label:'S1',v:levels.s1,type:'s',note:'Pivot support'},
+                ].map((row,i)=>(
+                  <div key={i} className={`flex items-center gap-2 px-2 py-1 rounded-lg text-[11px] ${row.type==='c'?'bg-accent-green/10 border border-accent-green/30':row.type==='e'?'bg-accent-blue/10 border border-accent-blue/20':row.type==='r'?'border-l-2 border-accent-red/40':'border-l-2 border-accent-green/40'}`}>
+                    <span className={`font-bold w-16 shrink-0 ${row.type==='c'?'text-accent-green':row.type==='e'?'text-accent-blue':row.type==='r'?'text-accent-red':'text-accent-green'}`}>{row.label}</span>
+                    <span className="font-mono font-bold text-white">{typeof row.v==='number'?`$${row.v.toFixed(2)}`:row.v}</span>
+                    <span className="text-muted text-[9px]">{row.note}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="flex items-center justify-between bg-surface-3 rounded-lg px-3 py-2 border border-border mb-2">
+                <span className="text-[10px] text-muted">R:R ratio<T id="rr"/></span>
+                <span className="text-sm font-bold text-accent-yellow font-mono">1:{liveRR}</span>
+                <span className="text-[9px] text-muted">Hold: {setup.holdDays}</span>
+              </div>
+              <div className="flex gap-2">
+                {[{l:'Fib 38.2%',v:levels.fib382},{l:'Fib 50%',v:levels.fib500},{l:'Fib 61.8%',v:levels.fib618}].map(f=>(
+                  <div key={f.l} className="text-center bg-surface-3 rounded-lg px-2 py-1.5 border border-border flex-1">
+                    <p className="text-[8px] text-accent-yellow font-bold">{f.l}<T id="fib"/></p>
+                    <p className="text-[10px] font-mono text-white">${f.v?.toFixed(2)}</p>
+                  </div>
+                ))}
               </div>
             </div>
-            <div className="grid grid-cols-3 gap-2 text-center">
-              {[
-                {l:'Shares to buy',v:String(liveShares),c:'text-white'},
-                {l:'Position value',v:`$${livePos.toLocaleString()}`,c:'text-white'},
-                {l:'Max loss (3%)',v:`$${liveLoss.toFixed(0)}`,c:'text-accent-red'},
-              ].map(r=>(
-                <div key={r.l} className="bg-surface-3 rounded-xl p-2.5 border border-border">
-                  <p className="text-[8px] text-muted">{r.l}</p>
-                  <p className={`text-sm font-mono font-bold ${r.c}`}>{r.v}</p>
-                </div>
-              ))}
-            </div>
-            {eduMode&&<p className="text-[10px] text-accent-green mt-2 italic">3% rule: max loss = ${(capital*0.03).toFixed(0)} on this trade. Shares auto-calculated from ATR-based stop distance.</p>}
+            {showGuide&&<div className="hidden xl:block"><SectionGuide sectionId="levels" show={true}/></div>}
           </div>
         )}
 
-        {/* Expand */}
+        {/* Position sizing */}
+        {!noSignal&&(
+          <div className={showGuide?'xl:grid xl:grid-cols-[1fr_300px] xl:gap-4 xl:items-start':''}>
+            <div className="bg-surface-2 rounded-xl p-3 border border-border">
+              <div className="flex items-center gap-3 mb-2">
+                <p className="text-[10px] text-muted font-semibold uppercase tracking-wide">Position Sizing<T id="capital"/></p>
+                <div className="flex items-center gap-1.5 ml-auto">
+                  <span className="text-[10px] text-muted">Capital $</span>
+                  <input type="number" value={capital} min={100} step={500}
+                    onChange={e=>setCapital(Math.max(100,parseInt(e.target.value)||10000))}
+                    className="input w-28 text-xs font-mono py-1 px-2"/>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-center mb-2">
+                {[
+                  {l:'Shares (3% risk rule)',v:String(liveShares),c:'text-accent-green',sub:'Max loss capped at 3%'},
+                  {l:'Shares (full capital)',v:String(fullShares),c:'text-white',sub:'All capital deployed'},
+                  {l:'Position value',v:`$${livePos.toLocaleString()}`,c:'text-white',sub:'At 3% rule shares'},
+                  {l:'Max loss (3%)',v:`$${liveLoss.toFixed(0)}`,c:'text-accent-red',sub:`${(capital*0.03).toFixed(0)} = 3% of capital`},
+                ].map(r=>(
+                  <div key={r.l} className="bg-surface-3 rounded-xl p-2.5 border border-border">
+                    <p className="text-[8px] text-muted leading-tight">{r.l}</p>
+                    <p className={`text-sm font-mono font-bold ${r.c}`}>{r.v}</p>
+                    <p className="text-[8px] text-muted">{r.sub}</p>
+                  </div>
+                ))}
+              </div>
+              {eduMode&&<p className="text-[10px] text-accent-green italic">3% rule: {liveShares} shares risks max ${liveLoss.toFixed(0)}. Full allocation: {fullShares} shares at ${liveEntry.toFixed(2)} deploys all ${capital.toLocaleString()}.</p>}
+            </div>
+            {showGuide&&<div className="hidden xl:block"><SectionGuide sectionId="position" show={true}/></div>}
+          </div>
+        )}
+
+        {/* Expand button */}
         <button onClick={()=>setExpanded(e=>!e)} className="btn-secondary text-xs flex items-center gap-1.5 w-full justify-center">
-          {expanded?<ChevronUp size={12}/>:<ChevronDown size={12}/>}{expanded?'Hide full analysis':'Full analysis — indicators · fundamentals · behavior'}
+          {expanded?<ChevronUp size={12}/>:<ChevronDown size={12}/>}
+          {expanded?'Hide full analysis':'Full analysis — indicators · fundamentals · behavior'}
         </button>
       </div>
 
       {/* Expanded section */}
       {expanded&&(
         <div className="border-t border-border p-4 space-y-4">
+
           {/* Core identity */}
           {setup.meta?.behavior&&(
             <div>
@@ -421,7 +457,11 @@ function SetupCard({setup,eduMode,onCertify,certLoading,isTopPick}:{setup:any;ed
           <div>
             <h4 className="text-xs font-bold text-white mb-2 flex items-center gap-1.5"><Activity size={12} className="text-accent-yellow"/>Volatility Profile</h4>
             <div className="grid grid-cols-3 gap-2">
-              {[{l:'ATR (daily $)',v:`$${atr.toFixed(2)}`},{l:'ATR % of price',v:`${ind.atrPct??0}%`},{l:'Avg daily move',v:`±${setup.volatility?.avgDailyPct??0}%`}].map(r=>(
+              {[
+                {l:'ATR (daily $)',v:`$${atr.toFixed(2)}`},
+                {l:'ATR % of price',v:`${ind.atrPct??0}%`},
+                {l:'Avg daily move',v:`±${setup.volatility?.avgDailyPct??0}%`},
+              ].map(r=>(
                 <div key={r.l} className="bg-surface-2 rounded-xl p-2.5 border border-border text-center">
                   <p className="text-[9px] text-muted">{r.l}<T id="atr"/></p>
                   <p className="text-sm font-mono font-bold text-accent-yellow">{r.v}</p>
@@ -430,85 +470,93 @@ function SetupCard({setup,eduMode,onCertify,certLoading,isTopPick}:{setup:any;ed
             </div>
           </div>
 
-          {/* Indicators */}
+          {/* Indicators + guide */}
           {ind.rsi!=null&&(
-            <div data-guide-section="indicators">
-              <h4 className="text-xs font-bold text-white mb-3">📈 Indicator Dashboard</h4>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
-                <Gauge label="RSI (14)" value={ind.rsi} min={0} max={100} zones={RSI_Z} tipKey="rsi" eduMode={eduMode} eduVal={ind.rsi} ticks={[{v:28,l:'28'},{v:42,l:'42'},{v:65,l:'65'},{v:75,l:'75'}]}/>
-                <Gauge label="Volume Ratio" value={Math.min(3,ind.volR??ind.ratio??1)} min={0} max={3} zones={VOL_Z} tipKey="volume" eduMode={eduMode} eduVal={ind.volR??ind.ratio} ticks={[{v:1,l:'1×'},{v:1.5,l:'1.5×'},{v:2,l:'2×'}]}/>
-                <Gauge label="ADX — Trend Strength" value={Math.min(60,ind.adx??20)} min={0} max={60} zones={ADX_Z} tipKey="adx" eduMode={eduMode} eduVal={ind.adx} ticks={[{v:20,l:'20'},{v:30,l:'30'},{v:50,l:'50'}]}/>
-                <Gauge label="Stochastic %K" value={ind.stochK??50} min={0} max={100} zones={STOCH_Z} tipKey="stoch" eduMode={eduMode} eduVal={ind.stochK} ticks={[{v:20,l:'20'},{v:50,l:'50'},{v:80,l:'80'}]}/>
+            <div className={showGuide?'xl:grid xl:grid-cols-[1fr_300px] xl:gap-4 xl:items-start':''}>
+              <div>
+                <h4 className="text-xs font-bold text-white mb-3">📈 Indicator Dashboard</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
+                  <Gauge label="RSI (14)" value={ind.rsi} min={0} max={100} zones={RSI_Z} tipKey="rsi" eduMode={eduMode} eduVal={ind.rsi} ticks={[{v:28,l:'28'},{v:42,l:'42'},{v:65,l:'65'},{v:75,l:'75'}]}/>
+                  <Gauge label="Volume Ratio" value={Math.min(3,ind.volR??ind.ratio??1)} min={0} max={3} zones={VOL_Z} tipKey="volume" eduMode={eduMode} eduVal={ind.volR??ind.ratio} ticks={[{v:1,l:'1×'},{v:1.5,l:'1.5×'},{v:2,l:'2×'}]}/>
+                  <Gauge label="ADX — Trend Strength" value={Math.min(60,ind.adx??20)} min={0} max={60} zones={ADX_Z} tipKey="adx" eduMode={eduMode} eduVal={ind.adx} ticks={[{v:20,l:'20'},{v:30,l:'30'},{v:50,l:'50'}]}/>
+                  <Gauge label="Stochastic %K" value={ind.stochK??50} min={0} max={100} zones={STOCH_Z} tipKey="stoch" eduMode={eduMode} eduVal={ind.stochK} ticks={[{v:20,l:'20'},{v:50,l:'50'},{v:80,l:'80'}]}/>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-2">
+                  {[
+                    {l:'MACD (8/17/9)',v:ind.macd?.bullish?'▲ Bullish':'▼ Bearish',c:ind.macd?.bullish?'text-accent-green':'text-accent-red',tip:'macd'},
+                    {l:'EMA-9',v:ind.ema9?`$${ind.ema9}`:'N/A',c:(setup.price??0)>(ind.ema9??0)?'text-accent-green':'text-accent-red',tip:'ema9'},
+                    {l:'EMA-20',v:`$${ind.ema20??'—'}`,c:(setup.price??0)>(ind.ema20??0)?'text-accent-green':'text-accent-red',tip:'ema20'},
+                    {l:'EMA-50',v:`$${ind.ema50??'—'}`,c:(setup.price??0)>(ind.ema50??0)?'text-accent-green':'text-accent-red',tip:'ema50'},
+                    {l:'EMA-20 slope',v:ind.ema20Rising?'▲ Rising':'▼ Flat',c:ind.ema20Rising?'text-accent-green':'text-accent-yellow',tip:'ema20'},
+                    {l:'EMA stack',v:ind.fullEmaStack?'✓ Full align':'Partial',c:ind.fullEmaStack?'text-accent-green':'text-muted',tip:'ema20'},
+                  ].map(r=>(
+                    <div key={r.l} className="bg-surface-2 rounded-xl p-2.5 border border-border">
+                      <p className="text-[9px] text-muted">{r.l}<T id={r.tip}/></p>
+                      <p className={`text-sm font-mono font-bold ${r.c}`}>{r.v}</p>
+                    </div>
+                  ))}
+                </div>
+                <div className="bg-surface-2 rounded-xl p-2.5 border border-border">
+                  <p className="text-[9px] text-muted mb-1.5">Volume breakdown<T id="volume"/></p>
+                  <div className="grid grid-cols-3 gap-3 text-center">
+                    {[{l:'Today',v:fmtVol(ind.todayVol??0)},{l:'20d avg',v:fmtVol(ind.avgVol??0)},{l:'Ratio',v:`${(ind.volR??ind.ratio??1).toFixed(1)}×`}].map(r=>(
+                      <div key={r.l}><p className="text-[8px] text-muted">{r.l}</p><p className="text-xs font-mono font-bold text-white">{r.v}</p></div>
+                    ))}
+                  </div>
+                </div>
               </div>
-              {/* MACD + EMAs */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-2">
+              {showGuide&&<div className="hidden xl:block"><SectionGuide sectionId="indicators" show={true}/></div>}
+            </div>
+          )}
+
+          {/* Fundamentals + guide */}
+          <div className={showGuide?'xl:grid xl:grid-cols-[1fr_300px] xl:gap-4 xl:items-start':''}>
+            <div>
+              <h4 className="text-xs font-bold text-white mb-2">📊 Fundamentals</h4>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-3">
                 {[
-                  {l:'MACD (8/17/9)',v:ind.macd?.bullish?'▲ Bullish':'▼ Bearish',c:ind.macd?.bullish?'text-accent-green':'text-accent-red',tip:'macd'},
-                  {l:'EMA-9',v:ind.ema9?`$${ind.ema9}`:'N/A',c:setup.price>(ind.ema9??0)?'text-accent-green':'text-accent-red',tip:'ema9'},
-                  {l:'EMA-20',v:`$${ind.ema20}`,c:setup.price>ind.ema20?'text-accent-green':'text-accent-red',tip:'ema20'},
-                  {l:'EMA-50',v:`$${ind.ema50}`,c:setup.price>ind.ema50?'text-accent-green':'text-accent-red',tip:'ema50'},
-                  {l:'EMA-20 slope',v:ind.ema20Rising?'▲ Rising':'▼ Flat/falling',c:ind.ema20Rising?'text-accent-green':'text-accent-yellow',tip:'ema20'},
-                  {l:'EMA stack',v:ind.fullEmaStack?'✓ Full align':'Partial',c:ind.fullEmaStack?'text-accent-green':'text-muted',tip:'ema20'},
+                  {l:'Market Cap',v:fmtDollars(setup.fundamentals?.marketCap),tip:'marketCap'},
+                  {l:'P/E Ratio',v:setup.fundamentals?.pe?.toFixed(1)??'N/A',tip:'pe'},
+                  {l:'Beta',v:setup.fundamentals?.beta?.toFixed(2)??'N/A',tip:'beta'},
+                  {l:'52W High',v:setup.fundamentals?.high52?`$${setup.fundamentals.high52?.toFixed(2)}`:'N/A',tip:'marketCap'},
+                  {l:'52W Low',v:setup.fundamentals?.low52?`$${setup.fundamentals.low52?.toFixed(2)}`:'N/A',tip:'marketCap'},
+                  {l:'Rev Growth',v:setup.fundamentals?.revenueGrowth!=null?`${(setup.fundamentals.revenueGrowth*100).toFixed(1)}%`:'N/A',tip:'netMargin'},
+                  {l:'Revenue TTM',v:fmtDollars(setup.fundamentals?.revenueTTM),tip:'netMargin'},
+                  {l:'Gross Profit',v:fmtDollars(setup.fundamentals?.grossProfit),tip:'grossMargin'},
+                  {l:'Net Income',v:fmtDollars(setup.fundamentals?.netIncome),tip:'netMargin'},
+                  {l:'Gross Margin',v:setup.fundamentals?.grossMarginPct!=null?`${setup.fundamentals.grossMarginPct?.toFixed(1)}%`:'N/A',tip:'grossMargin'},
+                  {l:'Net Margin',v:setup.fundamentals?.netMarginPct!=null?`${setup.fundamentals.netMarginPct?.toFixed(1)}%`:'N/A',tip:'netMargin'},
+                  {l:'Short Interest',v:setup.fundamentals?.shortInterest?`${setup.fundamentals.shortInterest?.toFixed(1)}%`:'N/A',tip:'shortInt'},
                 ].map(r=>(
                   <div key={r.l} className="bg-surface-2 rounded-xl p-2.5 border border-border">
                     <p className="text-[9px] text-muted">{r.l}<T id={r.tip}/></p>
-                    <p className={`text-sm font-mono font-bold ${r.c}`}>{r.v}</p>
+                    <p className="text-sm font-mono font-bold text-white">{r.v}</p>
                   </div>
                 ))}
               </div>
-              {/* Volume detail */}
-              <div className="bg-surface-2 rounded-xl p-2.5 border border-border">
-                <p className="text-[9px] text-muted mb-1.5">Volume breakdown<T id="volume"/></p>
-                <div className="grid grid-cols-3 gap-3 text-center">
-                  {[{l:'Today',v:fmtVol(ind.todayVol??0)},{l:'20d avg',v:fmtVol(ind.avgVol??0)},{l:'Ratio',v:`${(ind.volR??ind.ratio??1).toFixed(1)}×`}].map(r=>(
-                    <div key={r.l}><p className="text-[8px] text-muted">{r.l}</p><p className="text-xs font-mono font-bold text-white">{r.v}</p></div>
-                  ))}
+              {setup.targets?.consensus&&(
+                <div>
+                  <h4 className="text-xs font-bold text-white mb-2 flex items-center gap-1.5"><Target size={12} className="text-accent-green"/>Analyst Price Targets</h4>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {[
+                      {l:'Consensus',v:`$${setup.targets.consensus?.toFixed(2)}`,hi:true,up:setup.targets.upside},
+                      {l:'High',v:`$${setup.targets.high?.toFixed(2)}`,hi:false,up:null},
+                      {l:'Low',v:`$${setup.targets.low?.toFixed(2)}`,hi:false,up:null},
+                      {l:'Median',v:`$${setup.targets.median?.toFixed(2)}`,hi:false,up:null},
+                    ].map(r=>(
+                      <div key={r.l} className={`rounded-xl p-2.5 border text-center ${r.hi?'bg-accent-green/10 border-accent-green/25':'bg-surface-2 border-border'}`}>
+                        <p className="text-[9px] text-muted">{r.l}</p>
+                        <p className={`text-sm font-mono font-bold ${r.hi?'text-accent-green':'text-white'}`}>{r.v}</p>
+                        {r.hi&&r.up!=null&&<p className={`text-[9px] font-bold ${(r.up??0)>=0?'text-accent-green':'text-accent-red'}`}>{(r.up??0)>=0?'+':''}{r.up}% upside</p>}
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
-          )}
-
-          {/* Fundamentals */}
-          <div data-guide-section="fundamentals">
-            <h4 className="text-xs font-bold text-white mb-2">📊 Fundamentals</h4>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {[
-                {l:'Market Cap',v:fmtDollars(setup.fundamentals?.marketCap),tip:'marketCap'},
-                {l:'P/E Ratio',v:setup.fundamentals?.pe?.toFixed(1)??'N/A',tip:'pe'},
-                {l:'Beta',v:setup.fundamentals?.beta?.toFixed(2)??'N/A',tip:'beta'},
-                {l:'52W High',v:setup.fundamentals?.high52?`$${setup.fundamentals.high52?.toFixed(2)}`:'N/A',tip:'marketCap'},
-                {l:'52W Low',v:setup.fundamentals?.low52?`$${setup.fundamentals.low52?.toFixed(2)}`:'N/A',tip:'marketCap'},
-                {l:'Rev Growth',v:setup.fundamentals?.revenueGrowth!=null?`${(setup.fundamentals.revenueGrowth*100).toFixed(1)}%`:'N/A',tip:'netMargin'},
-                {l:'Revenue TTM',v:fmtDollars(setup.fundamentals?.revenueTTM),tip:'netMargin'},
-                {l:'Gross Profit',v:fmtDollars(setup.fundamentals?.grossProfit),tip:'grossMargin'},
-                {l:'Net Income',v:fmtDollars(setup.fundamentals?.netIncome),tip:'netMargin'},
-                {l:'Gross Margin',v:setup.fundamentals?.grossMarginPct!=null?`${setup.fundamentals.grossMarginPct?.toFixed(1)}%`:'N/A',tip:'grossMargin'},
-                {l:'Net Margin',v:setup.fundamentals?.netMarginPct!=null?`${setup.fundamentals.netMarginPct?.toFixed(1)}%`:'N/A',tip:'netMargin'},
-                {l:'Short Interest',v:setup.fundamentals?.shortInterest?`${setup.fundamentals.shortInterest?.toFixed(1)}%`:'N/A',tip:'shortInt'},
-              ].map(r=>(
-                <div key={r.l} className="bg-surface-2 rounded-xl p-2.5 border border-border">
-                  <p className="text-[9px] text-muted">{r.l}<T id={r.tip}/></p>
-                  <p className="text-sm font-mono font-bold text-white">{r.v}</p>
-                </div>
-              ))}
-            </div>
+            {showGuide&&<div className="hidden xl:block"><SectionGuide sectionId="fundamentals" show={true}/></div>}
           </div>
 
-          {/* Analyst targets */}
-          {setup.targets?.consensus&&(
-            <div>
-              <h4 className="text-xs font-bold text-white mb-2 flex items-center gap-1.5"><Target size={12} className="text-accent-green"/>Analyst Price Targets</h4>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                {[{l:'Consensus',v:`$${setup.targets.consensus?.toFixed(2)}`,hi:true,up:setup.targets.upside},{l:'High',v:`$${setup.targets.high?.toFixed(2)}`,hi:false,up:null},{l:'Low',v:`$${setup.targets.low?.toFixed(2)}`,hi:false,up:null},{l:'Median',v:`$${setup.targets.median?.toFixed(2)}`,hi:false,up:null}].map(r=>(
-                  <div key={r.l} className={`rounded-xl p-2.5 border text-center ${r.hi?'bg-accent-green/10 border-accent-green/25':'bg-surface-2 border-border'}`}>
-                    <p className="text-[9px] text-muted">{r.l}</p>
-                    <p className={`text-sm font-mono font-bold ${r.hi?'text-accent-green':'text-white'}`}>{r.v}</p>
-                    {r.hi&&r.up!=null&&<p className={`text-[9px] font-bold ${(r.up??0)>=0?'text-accent-green':'text-accent-red'}`}>{(r.up??0)>=0?'+':''}{r.up}% upside</p>}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       )}
     </div>
@@ -524,41 +572,6 @@ const RANGES=[
   {id:'elite',label:'Elite',sub:'$700+'},
 ];
 
-// ── Inline Guide Panel (right column) ────────────────────────────────────────
-function InlineGuidePanel({activeSection}:{activeSection:string}){
-  const section=EDU_SECTIONS.find(s=>s.id===activeSection)??EDU_SECTIONS[0];
-  return(
-    <div className="sticky top-4 space-y-3">
-      <div className="bg-surface-2 border border-border rounded-xl overflow-hidden">
-        <div className="px-3 py-2.5 border-b border-border bg-surface-3 flex items-center gap-2">
-          <BookOpen size={12} className="text-accent-green"/>
-          <p className="text-[11px] font-bold text-white">Trading Guide</p>
-          <span className="text-[9px] text-accent-green ml-auto bg-accent-green/10 px-1.5 py-0.5 rounded-full">{section.label}</span>
-        </div>
-        <div className="p-3 space-y-3 max-h-[80vh] overflow-y-auto">
-          <p className="text-[10px] text-secondary leading-relaxed italic border-l-2 border-accent-green/30 pl-2">{section.intro}</p>
-          {section.items.map((item,i)=>(
-            <div key={i} className="space-y-1">
-              <p className="text-[10px] font-bold text-white">{item.t}</p>
-              <p className="text-[10px] text-secondary leading-relaxed">{item.d}</p>
-              <div className="bg-surface-3 rounded-lg p-2 border border-border/60">
-                <p className="text-[8px] text-accent-green font-semibold mb-0.5">Example</p>
-                <p className="text-[9px] text-muted leading-relaxed">{item.ex}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-        {/* Section nav dots */}
-        <div className="flex justify-center gap-1.5 py-2 border-t border-border">
-          {EDU_SECTIONS.map(s=>(
-            <div key={s.id} title={s.label} className={`w-1.5 h-1.5 rounded-full transition-all ${s.id===activeSection?'bg-accent-green scale-125':'bg-border'}`}/>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export default function TradingAgentPage(){
   const[mode,setMode]=useState<'auto'|'manual'>('auto');
   const[manualTicker,setManualTicker]=useState('');
@@ -570,41 +583,32 @@ export default function TradingAgentPage(){
   const[error,setError]=useState<string|null>(null);
   const[eduMode,setEduMode]=useState(()=>{try{return localStorage.getItem('ziqron_edu')!=='off';}catch{return true;}});
   const[showGuide,setShowGuide]=useState(true);
-  const[activeSection,setActiveSection]=useState('setup');
   const[certLoading,setCertLoading]=useState<string|null>(null);
   const debounceRef=useRef<ReturnType<typeof setTimeout>|null>(null);
   const searchRef=useRef<HTMLDivElement>(null);
-  const mainRef=useRef<HTMLDivElement>(null);
 
   function toggleEdu(){const n=!eduMode;setEduMode(n);try{localStorage.setItem('ziqron_edu',n?'on':'off');}catch{}}
-
-  // Scroll tracking — observe section markers to update guide
-  useEffect(()=>{
-    const obs=new IntersectionObserver(entries=>{
-      entries.forEach(e=>{
-        if(e.isIntersecting){
-          const sec=e.target.getAttribute('data-guide-section');
-          if(sec)setActiveSection(sec);
-        }
-      });
-    },{threshold:0.4,rootMargin:'-10% 0px -40% 0px'});
-    const markers=document.querySelectorAll('[data-guide-section]');
-    markers.forEach(el=>obs.observe(el));
-    return()=>obs.disconnect();
-  },[result]); // re-run when result changes (new cards rendered)
 
   function handleManualInput(val:string){
     setManualTicker(val.toUpperCase());setShowSuggest(false);
     if(debounceRef.current)clearTimeout(debounceRef.current);
     if(val.length<1){setSuggestions([]);return;}
     debounceRef.current=setTimeout(async()=>{
-      try{const res=await fetch(`/api/stocks/search?q=${encodeURIComponent(val)}`);const json=await res.json();setSuggestions(json.results??[]);setShowSuggest((json.results??[]).length>0);}catch{setSuggestions([]);}
+      try{
+        const res=await fetch(`/api/stocks/search?q=${encodeURIComponent(val)}`);
+        const json=await res.json();
+        setSuggestions(json.results??[]);
+        setShowSuggest((json.results??[]).length>0);
+      }catch{setSuggestions([]);}
     },280);
   }
 
   useEffect(()=>{
-    function handle(e:MouseEvent){if(searchRef.current&&!searchRef.current.contains(e.target as Node))setShowSuggest(false);}
-    document.addEventListener('mousedown',handle);return()=>document.removeEventListener('mousedown',handle);
+    function handle(e:MouseEvent){
+      if(searchRef.current&&!searchRef.current.contains(e.target as Node))setShowSuggest(false);
+    }
+    document.addEventListener('mousedown',handle);
+    return()=>document.removeEventListener('mousedown',handle);
   },[]);
 
   const scan=useCallback(async()=>{
@@ -624,23 +628,28 @@ export default function TradingAgentPage(){
     setCertLoading(ticker);
     const existing=result?.setups?.find((s:any)=>s.ticker===ticker)?.userCert;
     const isActive=existing?.user_verdict===verdict;
-    await fetch(`/api/stocks/${ticker}/halal-cert`,{method:isActive?'DELETE':'POST',headers:{'Content-Type':'application/json'},body:isActive?undefined:JSON.stringify({user_verdict:verdict})});
+    await fetch(`/api/stocks/${ticker}/halal-cert`,{
+      method:isActive?'DELETE':'POST',
+      headers:{'Content-Type':'application/json'},
+      body:isActive?undefined:JSON.stringify({user_verdict:verdict}),
+    });
     await scan();setCertLoading(null);
   }
 
   return(
-    <div className="page-enter">
+    <div className="page-enter space-y-5">
+
       {/* Gharar disclaimer */}
-      <div className="bg-accent-green/5 border border-accent-green/20 rounded-xl p-4 mb-5">
+      <div className="bg-accent-green/5 border border-accent-green/20 rounded-xl p-4">
         <p className="text-xs font-bold text-accent-green mb-1">🕌 تَوَكَّلْ عَلَى اللَّه — Due Diligence is a Religious Obligation</p>
         <p className="text-[11px] text-secondary leading-relaxed">Islam prohibits <strong className="text-white">gharar</strong> — excessive uncertainty or blind speculation. Every signal is a tool for informed analysis, not a directive to buy. Verify halal status and never invest money you cannot afford to lose.</p>
       </div>
 
       {/* Header */}
-      <div className="flex items-start justify-between flex-wrap gap-3 mb-5">
+      <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-white flex items-center gap-2"><Zap size={20} className="text-accent-green"/>Short-Term Trading Agent</h1>
-          <p className="text-secondary text-sm mt-0.5">200+ halal stocks · live price · PDH/PDL · AI behavior · parallel scan</p>
+          <p className="text-secondary text-sm mt-0.5">276 halal stocks · live Alpaca price · PDH/PDL · AI behavior · per-section guide</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <a href="/learn" className="btn-secondary flex items-center gap-1.5 text-xs"><BookOpen size={13}/>Learning Hub</a>
@@ -653,111 +662,117 @@ export default function TradingAgentPage(){
         </div>
       </div>
 
-      {/* 2-column layout: left=main, right=guide */}
-      <div className={`${showGuide?'xl:grid xl:grid-cols-[1fr_300px] xl:gap-6':'block'}`}>
+      {/* Controls + setup guide */}
+      <div className={showGuide?'xl:grid xl:grid-cols-[1fr_300px] xl:gap-6':''}>
+        <div className="card p-4 space-y-4">
+          <div className="grid grid-cols-2 gap-2">
+            {[{id:'auto',l:'🔍 Auto Scan',s:'Scan 276 halal stocks'},{id:'manual',l:'🎯 Evaluate Ticker',s:'Enter any stock symbol'}].map(m=>(
+              <button key={m.id} onClick={()=>setMode(m.id as 'auto'|'manual')}
+                className={`rounded-xl p-3 border text-left transition-all ${mode===m.id?'bg-accent-green/10 border-accent-green/30':'border-border hover:bg-surface-2'}`}>
+                <p className={`text-sm font-bold ${mode===m.id?'text-accent-green':'text-white'}`}>{m.l}</p>
+                <p className="text-[10px] text-muted">{m.s}</p>
+              </button>
+            ))}
+          </div>
 
-        {/* ── LEFT: main content ── */}
-        <div ref={mainRef} className="space-y-5 min-w-0">
+          {mode==='manual'&&(
+            <div ref={searchRef} className="relative">
+              <div className="relative max-w-xs">
+                <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted"/>
+                <input value={manualTicker} onChange={e=>handleManualInput(e.target.value)}
+                  onKeyDown={e=>e.key==='Enter'&&scan()}
+                  onFocus={()=>suggestions.length>0&&setShowSuggest(true)}
+                  placeholder="HIMS, ALAB, NVO, NIKE…"
+                  className="input w-full pl-9 font-mono" autoComplete="off"/>
+              </div>
+              {showSuggest&&suggestions.length>0&&(
+                <div className="absolute top-11 left-0 w-64 bg-surface-2 border border-border rounded-xl shadow-xl z-50 overflow-hidden">
+                  {suggestions.slice(0,7).map((s:any)=>(
+                    <button key={s.ticker} onClick={()=>{setManualTicker(s.ticker);setShowSuggest(false);}}
+                      className="w-full flex items-center gap-2 px-3 py-2 hover:bg-surface-3 transition-colors text-left">
+                      <span className="text-xs font-mono font-bold text-accent-green w-14 shrink-0">{s.ticker}</span>
+                      <span className="text-[10px] text-secondary truncate">{s.name}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
-          {/* Controls */}
-          <div className="card p-4 space-y-4" data-guide-section="setup">
-            <div className="grid grid-cols-2 gap-2">
-              {[{id:'auto',l:'🔍 Auto Scan',s:'Scan 200+ halal universe'},{id:'manual',l:'🎯 Evaluate Ticker',s:'Enter any stock symbol'}].map(m=>(
-                <button key={m.id} onClick={()=>setMode(m.id as 'auto'|'manual')} className={`rounded-xl p-3 border text-left transition-all ${mode===m.id?'bg-accent-green/10 border-accent-green/30':'border-border hover:bg-surface-2'}`}>
-                  <p className={`text-sm font-bold ${mode===m.id?'text-accent-green':'text-white'}`}>{m.l}</p>
-                  <p className="text-[10px] text-muted">{m.s}</p>
+          <div>
+            <p className="text-[10px] text-muted uppercase tracking-wide mb-2 font-semibold">Price Range — 276 stocks scanned, filtered by actual Alpaca price</p>
+            <div className="flex flex-wrap gap-2">
+              {RANGES.map(r=>(
+                <button key={r.id} onClick={()=>setPriceRange(r.id)}
+                  className={`flex flex-col items-center px-3 py-2 rounded-xl border text-center transition-all ${priceRange===r.id?'bg-accent-green/10 border-accent-green/30':'border-border hover:bg-surface-2'}`}>
+                  <span className={`text-xs font-bold ${priceRange===r.id?'text-accent-green':'text-white'}`}>{r.label}</span>
+                  <span className="text-[9px] text-muted">{r.sub}</span>
                 </button>
               ))}
             </div>
+          </div>
 
-            {mode==='manual'&&(
-              <div ref={searchRef} className="relative">
-                <div className="relative max-w-xs">
-                  <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted"/>
-                  <input value={manualTicker} onChange={e=>handleManualInput(e.target.value)}
-                    onKeyDown={e=>e.key==='Enter'&&scan()} onFocus={()=>suggestions.length>0&&setShowSuggest(true)}
-                    placeholder="HIMS, ALAB, NVO, CRDO…" className="input w-full pl-9 font-mono" autoComplete="off"/>
+          <button onClick={scan} disabled={loading} className="btn-primary w-full flex items-center justify-center gap-2">
+            {loading
+              ? <><Loader2 size={14} className="animate-spin"/>Scanning {RANGES.find(r=>r.id===priceRange)?.label} range…</>
+              : <><Zap size={14}/>{mode==='manual'&&manualTicker?`Evaluate ${manualTicker}`:`Scan ${RANGES.find(r=>r.id===priceRange)?.label??''} Range`}</>}
+          </button>
+        </div>
+        {showGuide&&<div className="hidden xl:block"><SectionGuide sectionId="setup" show={true}/></div>}
+      </div>
+
+      {error&&<div className="card border border-accent-red/20 bg-accent-red/5 p-4 text-sm text-accent-red">{error}</div>}
+
+      {result&&!loading&&(
+        <div className="space-y-4">
+          <div className="flex items-center justify-between flex-wrap gap-2 px-1">
+            {result.signal==='SETUPS_FOUND'?(
+              <>
+                <p className="text-sm font-semibold text-white">Found <span className="text-accent-green">{result.found}</span> setup{result.found!==1?'s':''} · <span className="text-accent-green">{result.scanned}</span> in range</p>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] text-muted">{new Date(result.generated_at).toLocaleTimeString()}</span>
+                  <button onClick={scan} className="btn-ghost text-xs flex items-center gap-1"><RefreshCw size={11}/>Refresh</button>
                 </div>
-                {showSuggest&&suggestions.length>0&&(
-                  <div className="absolute top-11 left-0 w-64 bg-surface-2 border border-border rounded-xl shadow-xl z-50 overflow-hidden">
-                    {suggestions.slice(0,7).map((s:any)=>(
-                      <button key={s.ticker} onClick={()=>{setManualTicker(s.ticker);setShowSuggest(false);}} className="w-full flex items-center gap-2 px-3 py-2 hover:bg-surface-3 transition-colors text-left">
-                        <span className="text-xs font-mono font-bold text-accent-green w-14 shrink-0">{s.ticker}</span>
-                        <span className="text-[10px] text-secondary truncate">{s.name}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
+              </>
+            ):result.signal==='NO_SIGNAL'?(
+              <p className="text-sm text-accent-yellow">Full card shown — stock doesn't meet signal criteria right now</p>
+            ):(
+              <div className="w-full">
+                <p className="text-sm font-semibold text-accent-yellow mb-1">🛡️ No setups today — capital preserved</p>
+                <p className="text-xs text-secondary">{result.reason}</p>
+                {result.reject_sample?.length>0&&<p className="text-[10px] text-muted mt-1.5">Rejections: {result.reject_sample.join(' · ')}</p>}
               </div>
             )}
-
-            <div>
-              <p className="text-[10px] text-muted uppercase tracking-wide mb-2 font-semibold">Price Range — entire universe scanned, filtered by actual price</p>
-              <div className="flex flex-wrap gap-2">
-                {RANGES.map(r=>(
-                  <button key={r.id} onClick={()=>setPriceRange(r.id)}
-                    className={`flex flex-col items-center px-3 py-2 rounded-xl border text-center transition-all ${priceRange===r.id?'bg-accent-green/10 border-accent-green/30':'border-border hover:bg-surface-2'}`}>
-                    <span className={`text-xs font-bold ${priceRange===r.id?'text-accent-green':'text-white'}`}>{r.label}</span>
-                    <span className="text-[9px] text-muted">{r.sub}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <button onClick={scan} disabled={loading} className="btn-primary w-full flex items-center justify-center gap-2">
-              {loading?<><Loader2 size={14} className="animate-spin"/>Scanning all {RANGES.find(r=>r.id===priceRange)?.label} stocks…</>:<><Zap size={14}/>{mode==='manual'&&manualTicker?`Evaluate ${manualTicker}`:`Scan ${RANGES.find(r=>r.id===priceRange)?.label??''} Range`}</>}
-            </button>
           </div>
 
-          {error&&<div className="card border border-accent-red/20 bg-accent-red/5 p-4 text-sm text-accent-red">{error}</div>}
-
-          {result&&!loading&&(
-            <div className="space-y-4">
-              <div className="flex items-center justify-between flex-wrap gap-2 px-1">
-                {result.signal==='SETUPS_FOUND'?(
-                  <><p className="text-sm font-semibold text-white">Found <span className="text-accent-green">{result.found}</span> setup{result.found!==1?'s':''} · <span className="text-accent-green">{result.scanned}</span> in range</p>
-                  <div className="flex items-center gap-2"><span className="text-[10px] text-muted">{new Date(result.generated_at).toLocaleTimeString()}</span><button onClick={scan} className="btn-ghost text-xs flex items-center gap-1"><RefreshCw size={11}/>Refresh</button></div></>
-                ):result.signal==='NO_SIGNAL'?(
-                  <p className="text-sm text-accent-yellow">Full card shown — stock doesn't meet signal criteria right now</p>
-                ):(
-                  <div className="w-full"><p className="text-sm font-semibold text-accent-yellow mb-1">🛡️ No setups today — capital preserved</p>
-                  <p className="text-xs text-secondary">{result.reason}</p>
-                  {result.reject_sample?.length>0&&<p className="text-[10px] text-muted mt-1.5">Rejections: {result.reject_sample.join(' · ')}</p>}</div>
-                )}
+          {result.pickOne&&result.setups?.length>1&&(
+            <div className="bg-surface-2 border border-accent-green/25 rounded-xl p-4 flex items-start gap-3">
+              <Trophy size={16} className="text-accent-green shrink-0 mt-0.5"/>
+              <div>
+                <p className="text-xs font-bold text-accent-green mb-1">🏆 If You Can Only Pick One Today:</p>
+                <p className="text-xs text-secondary leading-relaxed">{result.pickOne}</p>
               </div>
-
-              {result.pickOne&&result.setups?.length>1&&(
-                <div className="bg-surface-2 border border-accent-green/25 rounded-xl p-4 flex items-start gap-3">
-                  <Trophy size={16} className="text-accent-green shrink-0 mt-0.5"/>
-                  <div>
-                    <p className="text-xs font-bold text-accent-green mb-1">🏆 If You Can Only Pick One Today:</p>
-                    <p className="text-xs text-secondary leading-relaxed">{result.pickOne}</p>
-                  </div>
-                </div>
-              )}
-
-              {result.setups?.map((s:any,i:number)=>(
-                <SetupCard key={s.ticker} setup={s} eduMode={eduMode} onCertify={certify} certLoading={certLoading} isTopPick={i===0&&result.setups.length>1&&!s.no_signal}/>
-              ))}
             </div>
           )}
 
-          {!result&&!loading&&(
-            <div className="flex flex-col items-center py-20 text-center">
-              <Zap size={36} className="text-muted mb-3"/>
-              <h2 className="text-base font-semibold text-white mb-1">Select a range and run the scan</h2>
-              <p className="text-xs text-secondary max-w-sm">All 200+ halal-screened stocks scanned — filtered by actual current Alpaca SIP price. The Trading Guide on the right explains every section as you scroll.</p>
-            </div>
-          )}
+          {result.setups?.map((s:any,i:number)=>(
+            <SetupCard
+              key={s.ticker} setup={s} eduMode={eduMode}
+              onCertify={certify} certLoading={certLoading}
+              isTopPick={i===0&&result.setups.length>1&&!s.no_signal}
+              showGuide={showGuide}
+            />
+          ))}
         </div>
+      )}
 
-        {/* ── RIGHT: inline guide (desktop only) ── */}
-        {showGuide&&(
-          <div className="hidden xl:block">
-            <InlineGuidePanel activeSection={activeSection}/>
-          </div>
-        )}
-      </div>
+      {!result&&!loading&&(
+        <div className="flex flex-col items-center py-20 text-center">
+          <Zap size={36} className="text-muted mb-3"/>
+          <h2 className="text-base font-semibold text-white mb-1">Select a range and run the scan</h2>
+          <p className="text-xs text-secondary max-w-sm">276 halal-certified stocks scanned — filtered by actual Alpaca price. Enable Trading Guide for per-section explanations alongside each section.</p>
+        </div>
+      )}
     </div>
   );
 }
