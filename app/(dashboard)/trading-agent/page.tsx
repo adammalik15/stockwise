@@ -34,7 +34,7 @@ const TIPS: Record<string,string> = {
   sr:       'Support = price floor where buyers stepped in repeatedly. Resistance = price ceiling. More tests of a level = stronger it becomes.',
   fib:      'Fibonacci retracement levels. 38.2%, 50%, 61.8% are used by institutions worldwide — becomes self-fulfilling through widespread adoption.',
   rr:       'Risk:Reward ratio. 1:1.3 means for every $1 you risk, you aim to make $1.30. Never enter a trade with R:R below 1:1.',
-  entry:    'Entry zone: ATR-scaled entry prices. Breakout = price + ATR×0.10 (10% of daily range above, confirms the break). Dip buy = price − ATR×0.15 (15% below, gets the better price). Scales with stock volatility.',
+  entry:    'Entry zone: the PRICE RANGE where you should place your order — NOT the current price. For breakouts: set a buy-stop order at the top of this zone. For dips: set a limit order at the bottom. Current price is shown separately above.',
   stop:     'Stop-loss: the price where you exit if wrong. Set at 1.5×ATR below entry. Non-negotiable — place it before entering.',
   tp1:      'Take-profit 1: first target at 2×ATR above entry. When hit, move stop to breakeven. You now have a risk-free trade running.',
   keyMoves: '5%+ moves in the past 90 days with AI explanations. Reveals what type of catalysts move this specific stock — so you know what to watch for.',
@@ -425,7 +425,7 @@ function SetupCard({setup,eduMode,onCertify,certLoading,isTopPick,showGuide}:{
               <div className="space-y-1 mb-2">
                 {[
                   {label:'TP1',v:setup.tp1,type:'r',note:'Target 1'},
-                  {label:'Entry',v:`$${setup.entryLo?.toFixed(2)}–$${setup.entryHi?.toFixed(2)}`,type:'e',note:'Entry zone'},
+                  {label:'Entry zone',v:`$${setup.entryLo?.toFixed(2)} – $${setup.entryHi?.toFixed(2)}`,type:'e',note:setup.entryNote??'ATR-scaled entry zone'},
                   {label:'Price now',v:setup.price,type:'c',note:'Current price'},
                   {label:'Stop',v:setup.stop,type:'s',note:'Stop-loss'},
                   {label:'S1',v:levels.s1,type:'s',note:'Pivot support'},
@@ -808,10 +808,13 @@ export default function TradingAgentPage(){
           <div className="flex items-center justify-between flex-wrap gap-2 px-1">
             {result.signal==='SETUPS_FOUND'?(
               <>
-                <p className="text-sm font-semibold text-white">Found <span className="text-accent-green">{result.found}</span> setup{result.found!==1?'s':''} · <span className="text-accent-green">{result.scanned}</span> in range</p>
+                <p className="text-sm font-semibold text-white">Found <span className="text-accent-green">{result.found}</span> setup{result.found!==1?'s':''} · <span className="text-accent-green">{result.scanned}</span> of 276 halal stocks in {priceRange} price range</p>
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] text-muted">{new Date(result.generated_at).toLocaleTimeString()}</span>
-                  <button onClick={scan} className="btn-ghost text-xs flex items-center gap-1"><RefreshCw size={11}/>Refresh</button>
+                  {result.from_cache
+                    ? <span className="text-[9px] text-muted bg-surface-2 border border-border px-2 py-0.5 rounded-full">⚡ cached · stable results</span>
+                    : <span className="text-[10px] text-muted">{new Date(result.generated_at).toLocaleTimeString()}</span>
+                  }
+                  <button onClick={scan} className="btn-ghost text-xs flex items-center gap-1"><RefreshCw size={11}/>{result.from_cache?'Force refresh':'Refresh'}</button>
                 </div>
               </>
             ):result.signal==='NO_SIGNAL'?(

@@ -31,6 +31,24 @@ interface UniverseEntry {
 }
 
 // ── 200+ stock halal universe ─────────────────────────────────────────────────
+// ── Scan result cache (5-minute TTL) — prevents result flipping between scans ──
+const scanCache = new Map<string, {result:any; expires:number}>();
+function getCached(key:string):any|null {
+  const entry = scanCache.get(key);
+  if (!entry) return null;
+  if (Date.now() > entry.expires) { scanCache.delete(key); return null; }
+  return entry.result;
+}
+function setCache(key:string, result:any) {
+  // Prune old entries to prevent unbounded growth
+  if (scanCache.size > 20) {
+    const oldest = [...scanCache.entries()].sort((a,b)=>a[1].expires-b[1].expires)[0];
+    scanCache.delete(oldest[0]);
+  }
+  scanCache.set(key, { result, expires: Date.now() + 5*60*1000 });
+}
+
+
 const UNIVERSE: Record<string, UniverseEntry> = {
   // ── SMALL (< $25) ──────────────────────────────────────────────────────────
   RKLB: { halal:'high',    sector:'Aerospace',        tier:'small',  description:'Space launch & satellite services' },
@@ -631,7 +649,7 @@ function analyzeSetup(candles:{closes:number[];highs:number[];lows:number[];volu
   if(price>high20 && volData.ratio>=1.8)           setup = 'Momentum Breakout';
   else if(rsi<42 && price>ema20)                   setup = 'Dip Buy Reversal';
   else if(catalystFound && volData.ratio>=1.5)     setup = 'News Catalyst';
-  else if(score>=5)                                setup = 'Momentum Breakout';
+  else if(score>=minScore)                         setup = 'Momentum Breakout';  // respects Strict/Broader threshold
   else return null;
 
   // ── Improvement 4: ADX as hard gate by setup type ─────────────────────────
@@ -725,10 +743,21 @@ function buildPlan(ticker:string,candles:any,analysis:any,capital:number,meta:an
     price:parseFloat(price.toFixed(2)),
     priceSource:fundamentals?.price>0?'realtime':'delayed',
     change:fundamentals?.changePct??0,
-    entry,entryLo:parseFloat((entry*0.998).toFixed(2)),entryHi:entry,
+    entry,
+    entryLo:analysis.setup==='Dip Buy Reversal'
+      ? parseFloat((price-atr*0.25).toFixed(2))
+      : parseFloat(price.toFixed(2)),
+    entryHi:analysis.setup==='Dip Buy Reversal'
+      ? parseFloat(price.toFixed(2))
+      : parseFloat((price+atr*0.25).toFixed(2)),
     stop,tp1,tp2,
     shares,positionValue:parseFloat((shares*entry).toFixed(2)),maxLoss:parseFloat((shares*stopDist).toFixed(2)),
     rr:parseFloat(((atr*2)/stopDist).toFixed(1)),
+    entryNote:analysis.setup==='Momentum Breakout'
+      ? `Buy-stop $${parseFloat(price.toFixed(2))}–$${parseFloat((price+atr*0.25).toFixed(2))}: enter only if price reaches this zone`
+      : analysis.setup==='Dip Buy Reversal'
+      ? `Limit buy $${parseFloat((price-atr*0.25).toFixed(2))}–$${parseFloat(price.toFixed(2))}: dip entry, do not chase above this zone`
+      : `Market entry near $${parseFloat(price.toFixed(2))}: buy at open on catalyst day`,
     holdDays:analysis.setup==='News Catalyst'?'1 day':'1–3 days',
     indicators:analysis.indicators,levels,
     fundamentals:{
@@ -881,6 +910,12 @@ export async function POST(request:NextRequest){
   }
 
   // ── Mode A: auto scan (single tier) ──────────────────────────────────────
+  const cacheKey = `${price_range}:${min_score}`;
+  const cached = getCached(cacheKey);
+  if (cached) {
+    // Return cached result — prevents result flipping between scans < 5 min apart
+    return NextResponse.json({...cached, from_cache:true, generated_at:cached.generated_at});
+  }
   const bounds=PRICE_BOUNDS[price_range]??PRICE_BOUNDS.medium;
   // Scan ALL universe stocks — actual Alpaca price determines range match
   // 20 concurrent, no delay — ~120 stocks takes 3-4s, within Vercel 10s limit
@@ -934,10 +969,16 @@ export async function POST(request:NextRequest){
   );
 
   validSetups.sort((a,b)=>b.confidence-a.confidence);
-  if(!validSetups.length)return NextResponse.json({signal:'NO_TRADE',reason:`Scanned ${inRange.length} stocks in the ${price_range} range. No setups qualified today — capital preservation is the right call.`,scanned:inRange.length,reject_sample:rejectLog.slice(0,6),setups:[]});
+  if(!validSetups.length){
+    const noTradeResult={signal:'NO_TRADE',reason:`Scanned ${inRange.length} stocks in the ${price_range} range. No setups qualified today — capital preservation is the right call.`,scanned:inRange.length,reject_sample:rejectLog.slice(0,6),setups:[],generated_at:new Date().toISOString()};
+    setCache(cacheKey, noTradeResult);
+    return NextResponse.json(noTradeResult);
+  }
 
   // Generate "Pick One" intelligence if multiple setups
   const pickOne=validSetups.length>1&&anthropicKey?await generatePickOne(validSetups,anthropicKey):'';
 
-  return NextResponse.json({signal:'SETUPS_FOUND',scanned:inRange.length,found:validSetups.length,setups:validSetups.slice(0,5),pickOne,isAdmin,generated_at:new Date().toISOString()});
+  const foundResult = {signal:'SETUPS_FOUND',scanned:inRange.length,found:validSetups.length,setups:validSetups.slice(0,5),pickOne,isAdmin,generated_at:new Date().toISOString()};
+  setCache(cacheKey, foundResult);
+  return NextResponse.json(foundResult);
 }
